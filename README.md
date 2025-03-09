@@ -1,8 +1,13 @@
 # maybot
 Mungkin Asik Ya Robot
 
+Robot Agent for Windows
 
-##to rebuild cipibot.db
+run with maya_be.bat
 
-  sqlite3 cipibot.db < cr.sql
+## To rebuild cipibot.db
+
+```sh
+sqlite3 cipibot.db < cr.sql
+```
 
