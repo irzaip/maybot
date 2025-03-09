@@ -8,7 +8,7 @@ import trans_id as tr
 
 
 def buat_gambar(prompt: str):
-    API_TOKEN = "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"  # token in case you want to use private API
+    API_TOKEN = ""  # token in case you want to use private API
     headers = {
         "Authorization": f"Bearer {API_TOKEN}",
         "X-Wait-For-Model": "true",
