@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from enum import Enum, auto
-from rivescript import RiveScript # type: ignore
+#from rivescript import RiveScript # type: ignore
 from dataclasses import dataclass
 import toml
 import requests
@@ -126,7 +126,7 @@ class Conversation():
         self.gpt_token_used = 0
         self.daily_free_gpt = 5
         self.paid_messages = 0
-        self.rivebot = RiveScript()
+        #self.rivebot = RiveScript()
         self.anti_flood = []
         self.max_promo = 5
         self.max_funny = 7
@@ -157,9 +157,9 @@ class Conversation():
             'NEWCOMER' : './rive/newcomer',
             'INTERVIEW' : './rive/interview',
         }
-        self.rivebot = RiveScript()
-        self.rivebot.load_directory(all_scripts[script.name])
-        self.rivebot.sort_replies()
+        #self.rivebot = RiveScript()
+        #self.rivebot.load_directory(all_scripts[script.name])
+        #self.rivebot.sort_replies()
         #print(f"Loaded {script}")
 
     def reinit_rive(self, script_file) -> None:
