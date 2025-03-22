@@ -5,12 +5,13 @@ from typing import Union
 import db_oper as dbo
 import admin_func as admin
 
+
 #from queue import Queue
 import asyncio
 from colorama import Fore, Back, Style
 import demo_func as demo
 import friend_func as friend
-import apicall as api
+import ollama_api as api
 import counting as ct
 import interview as iv
 import gold_func as gold
@@ -118,6 +119,7 @@ class MsgProcessor:
                 print(f'{Fore.RED}{Back.WHITE}LONG POSTING DETECTED!.. i will comment{Fore.RESET}{Back.RESET}')
                 preprompt = f"Maya berikan jawaban berupa komentar baik dan pendek pada postingan ini. Jangan gunakan hashtag dalam jawaban.\n\n"
                 try:
+
                     result = await api.ask_gpt(self, conv_obj, f'{preprompt}{message.text}')
                     return result
                 except:

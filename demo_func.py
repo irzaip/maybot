@@ -3,7 +3,7 @@ from colorama import Fore, Style, Back
 import toml
 import random
 import counting as ct
-import apicall as api
+import ollama_api as api
 import datetime
 from db_oper import insert_conv
 import asyncio
@@ -74,23 +74,24 @@ async def run(self, conv_obj: Conversation, message: Message):
         remove_flood()
         return result 
 
-    rivereply = conv_obj.rivebot.reply("Irza Pulungan", message.text)
-    if "<ERROR>" not in rivereply:
-        print(f"{Fore.GREEN}{Back.LIGHTMAGENTA_EX}dia mengatakan : {message.text}{Style.RESET_ALL}")
-        print(f"{Fore.RED}{Back.WHITE}saya menjawab: {rivereply}{Style.RESET_ALL}")
-        await asyncio.sleep(10)
-        ct.kurangi_funny_counter(conv_obj)
-        remove_flood()
-        if not conv_obj.promo_counter:
-            rivereply = f"{rivereply}\n{promo}"
-        return rivereply
+    # rivereply = conv_obj.rivebot.reply("Irza Pulungan", message.text)
+    # if "<ERROR>" not in rivereply:
+    #     print(f"{Fore.GREEN}{Back.LIGHTMAGENTA_EX}dia mengatakan : {message.text}{Style.RESET_ALL}")
+    #     print(f"{Fore.RED}{Back.WHITE}saya menjawab: {rivereply}{Style.RESET_ALL}")
+    #     await asyncio.sleep(10)
+    #     ct.kurangi_funny_counter(conv_obj)
+    #     remove_flood()
+    #     if not conv_obj.promo_counter:
+    #         rivereply = f"{rivereply}\n{promo}"
+    #     return rivereply
+
 
 
     if conv_obj.funny_counter:
         ct.kurangi_funny_counter(conv_obj)
         ct.kurangi_promo_counter(conv_obj)
         pesan = random.choice(cfg['IKLAN']['PESAN'])
-        result = await api.ask_ooba(self, conv_obj, msg_text)
+        result = await api.ask_gpt(self, conv_obj, msg_text)
         remove_flood()
         if not conv_obj.promo_counter:
             return f'{result}\n{pesan}\n{promo}'

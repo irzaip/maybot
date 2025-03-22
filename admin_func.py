@@ -7,10 +7,11 @@ from agent3 import ask_pdf
 from db_oper import insert_conv
 import datetime
 import toml
-import apicall as api
+import ollama_api as api
 import asyncio
 import requests
 import sd_agent as sd
+
 
 cfg = toml.load('config.toml')
 
@@ -163,10 +164,10 @@ ct : {conv_obj.convtype}
                         int(datetime.datetime.utcnow().timestamp()), 
                         response, cfg['CONFIG']['DB_FILE'])
             return response        
-        # case ['gambar', *rest]:
-        #     print(" ".join(rest))
-        #     response = ask_dalle(conv_obj, " ".join(rest))
-        #     return response
+        case ['gambar', *rest]:
+            print(" ".join(rest))
+            response = ask_dalle(conv_obj, " ".join(rest))
+            return response
         case _ :
             result = await api.ask_gpt(msg_proc, conv_obj, msg_text)
             result = f"{result}\n\n\u2764".strip()
@@ -211,3 +212,5 @@ async def send_to_phone(user_number: str, bot_number: str, message: str):
     else:
         return f"Error sending message. Status code: {response.status_code}"
 
+def ask_dalle():
+    pass

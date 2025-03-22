@@ -2,7 +2,7 @@ from conversations import Conversation, Message, Persona
 from colorama import Fore, Style, Back
 import toml
 import counting as ct
-import apicall as api
+import ollama_api as api
 import datetime
 import asyncio
 

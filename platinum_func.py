@@ -3,7 +3,7 @@ from colorama import Fore, Style, Back
 import toml
 import random
 import counting as ct
-import apicall as api
+#import apicall_ as api
 import datetime
 from db_oper import insert_conv
 import asyncio

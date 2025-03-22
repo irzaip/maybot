@@ -446,14 +446,14 @@ async def background_task():
     count = 0
     while True:
         count += 1
-        print("ping", count)
+        #print("ping", count)
         await asyncio.sleep(10)
 
 async def background_task2():
     count = 0
     while True:
         count += 1
-        print("pong", count)
+        #print("pong", count)
         await asyncio.sleep(9)
 
 

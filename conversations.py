@@ -162,13 +162,13 @@ class Conversation():
         #self.rivebot.sort_replies()
         #print(f"Loaded {script}")
 
-    def reinit_rive(self, script_file) -> None:
-        self.rivebot.load_directory(script_file)
-        self.rivebot.sort_replies()
+    #def reinit_rive(self, script_file) -> None:
+    #    self.rivebot.load_directory(script_file)
+    #    self.rivebot.sort_replies()
 
-    def rivereply(self, message) -> str:
-        reply = self.rivebot.reply("localuser", message)
-        return reply
+    #def rivereply(self, message) -> str:
+    #    reply = self.rivebot.reply("localuser", message)
+    #    return reply
 
      
     def get_user_number(self) -> str:
