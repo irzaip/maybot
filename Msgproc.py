@@ -105,6 +105,17 @@ class MsgProcessor:
             else:
                 await admin.notify_admin(f'konfirmasi signal at japrian {message.user_number}')
 
+        #kalau ada penanya baru tentang kamar kos
+        if any(word in message.text.lower() for word in ["azana", "kos", "kost", "kamar"]):
+            conv_obj.persona = Persona.KOS_CS
+            pf.set_persona(Persona.KOS_CS, conv_obj)
+            conv_obj.free_gpt = True
+            print(f'{Fore.RED}{Back.WHITE}ADA SIGNAL AZANA USER DARI {message.user_number}{Fore.RESET}{Back.RESET}')
+            await admin.notify_admin(f'signal AZANA USER dari user {message.user_number}')
+            dbo.insert_info_cs(conv_obj.user_number, int(message.timestamp), cfg['CONFIG']['DB_FILE'])
+            #return cfg['SALES_CS']['GREETING']            
+
+
         if "info_cs" in message.text.lower():
             conv_obj.persona = Persona.ASSISTANT
             pf.set_persona(Persona.SALES_CS, conv_obj)
@@ -156,11 +167,11 @@ class MsgProcessor:
             print(f"{Fore.RED}{Back.WHITE}Called.. But ON MAINTENANCE NOW{Fore.WHITE}{Back.BLACK}")
             return "*BRB* - Be Right Back .. ZzzZzz ZZzzzz.."
 
-        if conv_obj.persona == Persona.SALES_CS:
+        if conv_obj.persona == Persona.KOS_CS:
             response = cs.ask_agent(user_prompt=message.text)
             if int(response['score']) < 5:
                 print(f'{Fore.RED}{Back.WHITE}ADA JAWABAN LOW SCORE - {message.user_number}{Fore.RESET}{Back.RESET}')
-                await admin.notify_admin(f'ADA JAWABAN LOW SCORE - {message.user_number}')
+                await admin.notify_admin(f'ADA JAWABAN LOW SCORE {response["score"]}- {message.user_number}\n\n{message.text}\n\n{response["response"]}')
             return response['response']
 
         if conv_obj.free_gpt:
@@ -196,7 +207,7 @@ class MsgProcessor:
         # JUST RETURN IT
         return "pfft..."
 
-
+    #WA YANG DATANG DARI WA BISNIS MASUK KE FUNGSI INI.
     async def chan1_process(self, conv_obj: Conversation, message: Message) -> Union[str, None, str]:
         """Prosedur ini memproses Terima pesan dari WA"""
         #ct.pra_proses(conv_obj)
@@ -220,7 +231,8 @@ class MsgProcessor:
             if self.is_admin(message):
                 return await admin.run(self, conv_obj, message.text)
 
-        if ("azana" or "kos" or "kost" or "kamar") in message.text.lower():
+        #kalau ada penanya baru tentang kamar kos
+        if any(word in message.text.lower() for word in ["azana", "kos", "kost", "kamar"]):
             conv_obj.persona = Persona.ASSISTANT
             pf.set_persona(Persona.SALES_CS, conv_obj)
             conv_obj.free_gpt = True
@@ -287,11 +299,12 @@ class MsgProcessor:
             print(f"{Fore.RED}{Back.WHITE}Called.. But ON MAINTENANCE NOW{Fore.WHITE}{Back.BLACK}")
             return "*BRB* - Be Right Back .. ZzzZzz ZZzzzz.."
 
+        #fungsi menjawab kos_cs
         if conv_obj.persona == Persona.SALES_CS:
             response = cs.ask_agent(user_prompt=message.text)
             if int(response['score']) < 5:
                 print(f'{Fore.RED}{Back.WHITE}ADA JAWABAN LOW SCORE - {message.user_number}{Fore.RESET}{Back.RESET}')
-                await admin.notify_admin(f'ADA JAWABAN LOW SCORE - {message.user_number}')
+                await admin.notify_admin(f'ADA JAWABAN LOW SCORE {response["score"]} - {message.user_number}\n\n{message.text}\n\n{response["response"]}')
             return response['response']
 
         if conv_obj.free_gpt:

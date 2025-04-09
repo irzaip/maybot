@@ -28,6 +28,7 @@ class Persona(str, Enum):
     INDOSOAI = auto()
     KOBOLD = auto()
     SALES_CS = auto()
+    KOS_CS = auto()
 
 class ConvType(str, Enum):
     DEMO = auto()
