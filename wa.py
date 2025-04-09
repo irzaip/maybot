@@ -14,7 +14,6 @@ from queue import Queue
 from datetime import datetime
 import uvicorn
 from colorama import just_fix_windows_console, Fore, Back, Style
-import subprocess
 import counting as ct
 import persona_func as pf
 import conv_func as cf
@@ -190,6 +189,61 @@ async def receive_message(message: Message) -> dict[str, str] | str:
     else:
         logging.error("Not Chat Type")
         return return_brb()
+
+
+@app.post("/special_messages")
+async def receive_special_message(message: Message) -> dict[str, str] | str:
+    """Fungsi terpenting menerima pesan dari WA web"""
+    if message.user_number not in conversations:
+        add_conversation(user_number=message.user_number, bot_number=message.bot_number)
+    
+    if message.type == 'chat':
+        #response_text = f"You received a message from {message.user_number}: {message.text}"
+        if message.user_number not in conversations:
+            conversations.update({message.user_number : Conversation(message.user_number, message.bot_number)})        
+
+        #ignore kalau ada konfirmasi atau ada error
+        if message.text.lower().__contains__('konfirmasi') or message.text.lower().__contains__('ada error'):
+            print("MSG IGNORED-KONFIRMASI")
+            return {'data': 'none'}
+
+        #ignore kalau ada info_cs atau ada error
+        if message.text.lower().__contains__('info_cs') or message.text.lower().__contains__('ada error'):
+            print("MSG IGNORED-INFO_CS")
+            return {'data': 'none'}
+        
+        if message.bot_number == cfg['CONFIG']['BOT_NUMBER'] and message.user_number in cfg['CONFIG']['ADMIN_NUMBER']:
+            print("MSG IGNORED-ADMIN TO ADMIN")
+            return {'data': 'none'}
+ 
+        
+        #pass conversation object to process
+        conversation_obj = conversations[message.user_number]
+        if message.notifyName:
+            conversation_obj.user_name = message.notifyName
+
+        try:
+            #response_text = process_msg(conversation_obj, message.text)
+            response_text = await msgprocess.chan1_process(conversation_obj, message=message)
+            if response_text == None:
+                return {'data': 'none'}
+        except Exception as err:
+            print(f"{Fore.RED}{Back.WHITE}>>>>>>>>>>>>>>>> ERROR : " + f"{str(err)} <<<<<<<<<<<<<<<<<<<<<{Fore.WHITE}{Back.BLACK}")
+            result = await notify_admin(f"Ada error {str(err)} nih! dari {message.user_number}") # type: ignore
+            conversation_obj.anti_flood = []
+            return {"message" : return_brb()}
+
+        update_db_connection(user_number=message.user_number, bot_number=message.bot_number, result=conversation_obj.get_params(), db_name='cipibot.db')
+        # logging.debug("Returned response: " + str(response_text))
+        #return {"message": str(response_text)}
+        #kita ignore semua pesan dulu.
+        return {'data': 'none'}
+
+    else:
+        logging.error("Not Chat Type")
+        return return_brb()
+
+
 
 @app.get("/print_messages/{user_number}")
 async def print_messages(user_number: str) -> str: # type: ignore

@@ -17,7 +17,7 @@ import interview as iv
 import gold_func as gold
 import platinum_func as platinum
 import persona_func as pf
-import agent_info_cs as cs
+import kos_agent as cs
 import sd_agent as sd
 
 cfg = toml.load('config.toml')
@@ -79,7 +79,9 @@ class MsgProcessor:
     async def process(self, conv_obj: Conversation, message: Message) -> Union[str, None, str]:
         """Prosedur ini memproses Terima pesan dari WA"""
         #ct.pra_proses(conv_obj)
-        print( f"{Fore.MAGENTA}ft:{conv_obj.free_tries}, ct:{conv_obj.convtype}, fc:{conv_obj.funny_counter}{Style.RESET_ALL}")
+        print(f"{Fore.YELLOW}Got BOT:{conv_obj.bot_number} - USER NUMBER:{conv_obj.user_number}({conv_obj.user_name})")
+        print(f"Message: {message.text}")
+        print( f"{Fore.LIGHTMAGENTA_EX}ft:{conv_obj.free_tries}, ct:{conv_obj.convtype}, fc:{conv_obj.funny_counter}{Style.RESET_ALL}")
             
         nama_bot = conv_obj.bot_name.lower()
         awalan = message.text[:len(nama_bot)].lower()
@@ -155,7 +157,11 @@ class MsgProcessor:
             return "*BRB* - Be Right Back .. ZzzZzz ZZzzzz.."
 
         if conv_obj.persona == Persona.SALES_CS:
-            return cs.info_cs(conv_obj=conv_obj, query=message.text)
+            response = cs.ask_agent(user_prompt=message.text)
+            if int(response['score']) < 5:
+                print(f'{Fore.RED}{Back.WHITE}ADA JAWABAN LOW SCORE - {message.user_number}{Fore.RESET}{Back.RESET}')
+                await admin.notify_admin(f'ADA JAWABAN LOW SCORE - {message.user_number}')
+            return response['response']
 
         if conv_obj.free_gpt:
             return await friend.run(self, conv_obj, message)
@@ -189,3 +195,138 @@ class MsgProcessor:
 
         # JUST RETURN IT
         return "pfft..."
+
+
+    async def chan1_process(self, conv_obj: Conversation, message: Message) -> Union[str, None, str]:
+        """Prosedur ini memproses Terima pesan dari WA"""
+        #ct.pra_proses(conv_obj)
+        print(f"{Fore.YELLOW}Got BOT:{conv_obj.bot_number} - USER NUMBER:{conv_obj.user_number}({conv_obj.user_name})")
+        print(f"Message: {message.text}")
+        print( f"{Fore.LIGHTMAGENTA_EX}ft:{conv_obj.free_tries}, ct:{conv_obj.convtype}, fc:{conv_obj.funny_counter}{Style.RESET_ALL}")
+            
+        nama_bot = conv_obj.bot_name.lower()
+        awalan = message.text[:len(nama_bot)].lower()
+
+        if self.is_ignored(message):
+            print(f'{Fore.WHITE}{Back.RED}MESSAGE IGNORED{Fore.RESET}{Back.RESET}')
+            return None
+
+        print(f"admin: {self.is_admin(message)}, dot:{message.text.startswith('.')}")
+        #ADMIN COMMAND.
+        if self.is_admin(message) and (nama_bot == awalan):
+            return await admin.run(self, conv_obj, message.text) 
+
+        if message.text.startswith('.'):
+            if self.is_admin(message):
+                return await admin.run(self, conv_obj, message.text)
+
+        if ("azana" or "kos" or "kost" or "kamar") in message.text.lower():
+            conv_obj.persona = Persona.ASSISTANT
+            pf.set_persona(Persona.SALES_CS, conv_obj)
+            conv_obj.free_gpt = True
+            print(f'{Fore.RED}{Back.WHITE}ADA SIGNAL AZANA USER DARI {message.user_number}{Fore.RESET}{Back.RESET}')
+            await admin.notify_admin(f'signal AZANA USER dari user {message.user_number}')
+            dbo.insert_info_cs(conv_obj.user_number, int(message.timestamp), cfg['CONFIG']['DB_FILE'])
+            #return cfg['SALES_CS']['GREETING']            
+
+
+        if "konfirmasi" in message.text.lower():
+            if message.author:
+                await admin.notify_admin(f'konfirmasi signal from group {message.user_number} or {message.author}')
+            else:
+                await admin.notify_admin(f'konfirmasi signal at japrian {message.user_number}')
+
+        if "info_cs" in message.text.lower():
+            conv_obj.persona = Persona.ASSISTANT
+            pf.set_persona(Persona.SALES_CS, conv_obj)
+            conv_obj.free_gpt = True
+            print(f'{Fore.RED}{Back.WHITE}ADA SIGNAL INFO_CS DARI {message.user_number}{Fore.RESET}{Back.RESET}')
+            await admin.notify_admin(f'signal INFO_CS dari user {message.user_number}')
+            dbo.insert_info_cs(conv_obj.user_number, int(message.timestamp), cfg['CONFIG']['DB_FILE'])
+            return cfg['SALES_CS']['GREETING']            
+
+        #abaikan msg group ini, kecuali panjang.
+        if (conv_obj.need_group_prefix) and (message.author != '') and ( nama_bot != awalan ):
+            #kecuali postingan panjang.
+            if len(message.text.lower().split(" ")) > 25:
+                print(f'{Fore.RED}{Back.WHITE}LONG POSTING DETECTED!.. i will comment{Fore.RESET}{Back.RESET}')
+                preprompt = f"Maya berikan jawaban berupa komentar baik dan pendek pada postingan ini. Jangan gunakan hashtag dalam jawaban.\n\n"
+                try:
+
+                    result = await api.ask_gpt(self, conv_obj, f'{preprompt}{message.text}')
+                    return result
+                except:
+                    return None
+            return None
+
+        #potong awalan
+        if awalan == nama_bot:
+            message.text = message.text[len(conv_obj.bot_name):].strip()
+
+        #ignore looping error admin notif send
+        if message.text.lower().startswith("ada error") or message.text.lower().startswith("konfirmasi signal"):
+            return None
+
+        
+        # PRA PROCESSING MESSAGE - buang aja karakter unicode dan quote
+        message.text = str(message.text)
+        message.text = message.text.encode('ascii', errors='ignore').decode()
+        message.text = message.text.replace("'"," ").replace('"',' ')
+
+
+        print("-------------------------------------------------")
+        print(f"{Fore.GREEN}{Style.BRIGHT}Message:",message)
+        print(f"{Style.RESET_ALL}-------------------------------------------------")
+
+        #TODO: Please to be removed or changed
+        human_say = "HUMAN: "+message.text
+        dbo.insert_conv(conv_obj.user_number, conv_obj.bot_number, int(message.timestamp), human_say, self.db_file)
+
+        # on maintenance
+        if self.on_maintenance and not self.is_admin(message):
+            print(f"{Fore.RED}{Back.WHITE}Called.. But ON MAINTENANCE NOW{Fore.WHITE}{Back.BLACK}")
+            return "*BRB* - Be Right Back .. ZzzZzz ZZzzzz.."
+
+        if conv_obj.persona == Persona.SALES_CS:
+            response = cs.ask_agent(user_prompt=message.text)
+            if int(response['score']) < 5:
+                print(f'{Fore.RED}{Back.WHITE}ADA JAWABAN LOW SCORE - {message.user_number}{Fore.RESET}{Back.RESET}')
+                await admin.notify_admin(f'ADA JAWABAN LOW SCORE - {message.user_number}')
+            return response['response']
+
+        if conv_obj.free_gpt:
+            return await friend.run(self, conv_obj, message)
+
+        if conv_obj.convtype == ConvType.ADMIN:
+            return await admin.run(self, conv_obj, message.text) 
+
+        if conv_obj.convtype == ConvType.PLATINUM:
+            return await platinum.run(self, conv_obj, message)
+
+        if conv_obj.convtype == ConvType.GOLD:
+            return await gold.run(self, conv_obj, message)
+
+        if conv_obj.convtype == ConvType.FRIEND:
+            return await friend.run(self, conv_obj, message)
+
+        if conv_obj.convtype == ConvType.DEMO:
+            return await demo.run(self, conv_obj, message)
+
+        # PROCESS BY PERSONA AND MODE
+        if conv_obj.convmode == ConvMode.YESNO:
+            if "y" in message.text.lower():
+                return "Kamu menjawab ya"
+            if "t" in message.text.lower():
+                return "Kamu menjawab tidak"
+
+        if conv_obj.convmode == ConvMode.ASK:
+            if "ok" in message.text.lower():
+                return "oke juga"
+
+
+        # JUST RETURN IT
+        return "pfft..."
+
+
+if __name__ == '__main__':
+    pass
