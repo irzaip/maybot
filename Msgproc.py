@@ -106,7 +106,7 @@ class MsgProcessor:
                 await admin.notify_admin(f'konfirmasi signal at japrian {message.user_number}')
 
         #kalau ada penanya baru tentang kamar kos
-        if any(word in message.text.lower() for word in ["azana", "kos", "kost", "kamar"]):
+        if any(word in message.text.lower() for word in ["azana", "kos", "kost", "kosan", "kamar"]):
             conv_obj.persona = Persona.KOS_CS
             pf.set_persona(Persona.KOS_CS, conv_obj)
             conv_obj.free_gpt = True
@@ -232,7 +232,7 @@ class MsgProcessor:
                 return await admin.run(self, conv_obj, message.text)
 
         #kalau ada penanya baru tentang kamar kos
-        if any(word in message.text.lower() for word in ["azana", "kos", "kost", "kamar"]):
+        if any(word in message.text.lower() for word in ["azana", "kos", "kost", "kosan", "kamar"]):
             conv_obj.persona = Persona.ASSISTANT
             pf.set_persona(Persona.SALES_CS, conv_obj)
             conv_obj.free_gpt = True
