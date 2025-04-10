@@ -167,12 +167,12 @@ class MsgProcessor:
             print(f"{Fore.RED}{Back.WHITE}Called.. But ON MAINTENANCE NOW{Fore.WHITE}{Back.BLACK}")
             return "*BRB* - Be Right Back .. ZzzZzz ZZzzzz.."
 
-        if conv_obj.persona == Persona.KOS_CS:
-            response = cs.ask_agent(user_prompt=message.text)
-            if int(response['score']) < 5:
-                print(f'{Fore.RED}{Back.WHITE}ADA JAWABAN LOW SCORE - {message.user_number}{Fore.RESET}{Back.RESET}')
-                await admin.notify_admin(f'ADA JAWABAN LOW SCORE {response["score"]}- {message.user_number}\n\n{message.text}\n\n{response["response"]}')
-            return response['response']
+        # if conv_obj.persona == Persona.KOS_CS:
+        #     response = cs.ask_agent(user_prompt=message.text)
+        #     if int(response['score']) < 5:
+        #         print(f'{Fore.RED}{Back.WHITE}ADA JAWABAN LOW SCORE - {message.user_number}{Fore.RESET}{Back.RESET}')
+        #         await admin.notify_admin(f'ADA JAWABAN LOW SCORE {response["score"]}- {message.user_number}\n\n{message.text}\n\n{response["response"]}')
+        #     return response['response']
 
         if conv_obj.free_gpt:
             return await friend.run(self, conv_obj, message)
@@ -233,29 +233,17 @@ class MsgProcessor:
 
         #kalau ada penanya baru tentang kamar kos
         if any(word in message.text.lower() for word in ["azana", "kos", "kost", "kosan", "kamar"]):
-            conv_obj.persona = Persona.ASSISTANT
-            pf.set_persona(Persona.SALES_CS, conv_obj)
-            conv_obj.free_gpt = True
-            print(f'{Fore.RED}{Back.WHITE}ADA SIGNAL AZANA USER DARI {message.user_number}{Fore.RESET}{Back.RESET}')
-            await admin.notify_admin(f'signal AZANA USER dari user {message.user_number}')
-            dbo.insert_info_cs(conv_obj.user_number, int(message.timestamp), cfg['CONFIG']['DB_FILE'])
-            #return cfg['SALES_CS']['GREETING']            
+            #menghindari loop
+            if not self.is_admin(message):
+                conv_obj.persona = Persona.ASSISTANT
+                pf.set_persona(Persona.SALES_CS, conv_obj)
+                conv_obj.free_gpt = True
+                print(f'{Fore.RED}{Back.WHITE}ADA SIGNAL DARI {message.user_number}{Fore.RESET}{Back.RESET}')
+                await admin.notify_admin(f'signal pertanyaan dari user {message.user_number}')
+                dbo.insert_info_cs(conv_obj.user_number, int(message.timestamp), cfg['CONFIG']['DB_FILE'])
+                #return cfg['SALES_CS']['GREETING']            
 
 
-        if "konfirmasi" in message.text.lower():
-            if message.author:
-                await admin.notify_admin(f'konfirmasi signal from group {message.user_number} or {message.author}')
-            else:
-                await admin.notify_admin(f'konfirmasi signal at japrian {message.user_number}')
-
-        if "info_cs" in message.text.lower():
-            conv_obj.persona = Persona.ASSISTANT
-            pf.set_persona(Persona.SALES_CS, conv_obj)
-            conv_obj.free_gpt = True
-            print(f'{Fore.RED}{Back.WHITE}ADA SIGNAL INFO_CS DARI {message.user_number}{Fore.RESET}{Back.RESET}')
-            await admin.notify_admin(f'signal INFO_CS dari user {message.user_number}')
-            dbo.insert_info_cs(conv_obj.user_number, int(message.timestamp), cfg['CONFIG']['DB_FILE'])
-            return cfg['SALES_CS']['GREETING']            
 
         #abaikan msg group ini, kecuali panjang.
         if (conv_obj.need_group_prefix) and (message.author != '') and ( nama_bot != awalan ):
