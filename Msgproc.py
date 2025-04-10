@@ -38,13 +38,30 @@ class MsgProcessor:
         self.antrian2 = 0
         self.on_maintenance = False
 
-
+    def is_bot(self, message: Message) -> bool:
+        bot_number = cfg['CONFIG']['BOT_NUMBER']
+        if (message.user_number == bot_number):
+            return True
+        return False
+    
     def is_admin(self, message: Message) -> bool:
         admin_number = cfg['CONFIG']['ADMIN_NUMBER']
         if (message.user_number in admin_number) or (message.author in admin_number):
             return True
         return False
 
+    def is_human_user(self, message: Message) -> bool:
+        if ("@c.us" in message.user_number):
+            return True
+        return False
+    
+    def is_group(self, message: Message) -> bool:
+        if ("@g.us" in message.user_number):
+            return True
+        return False
+        
+        
+        
     #LOOP TIKET UNTUK OOBA - tidur 2 detik tapi antri
     async def process_queue_ooba(self):
         while True:
@@ -90,6 +107,10 @@ class MsgProcessor:
             print(f'{Fore.WHITE}{Back.RED}MESSAGE IGNORED{Fore.RESET}{Back.RESET}')
             return None
 
+        #pesan dari bot di ignore
+        if self.is_bot(message):
+            return None
+
         print(f"admin: {self.is_admin(message)}, dot:{message.text.startswith('.')}")
         #ADMIN COMMAND.
         if self.is_admin(message) and (nama_bot == awalan):
@@ -101,17 +122,17 @@ class MsgProcessor:
 
         if "konfirmasi" in message.text.lower():
             if message.author:
-                await admin.notify_admin(f'konfirmasi signal from group {message.user_number} or {message.author}')
+                await admin.notify_admin(f'INFO: konfirmasi signal from group {message.user_number} or {message.author}')
             else:
-                await admin.notify_admin(f'konfirmasi signal at japrian {message.user_number}')
+                await admin.notify_admin(f'INFO: konfirmasi signal at japrian {message.user_number}')
 
         #kalau ada penanya baru tentang kamar kos
         if any(word in message.text.lower() for word in ["azana", "kos", "kost", "kosan", "kamar"]):
             conv_obj.persona = Persona.KOS_CS
             pf.set_persona(Persona.KOS_CS, conv_obj)
             conv_obj.free_gpt = True
-            print(f'{Fore.RED}{Back.WHITE}ADA SIGNAL AZANA USER DARI {message.user_number}{Fore.RESET}{Back.RESET}')
-            await admin.notify_admin(f'signal AZANA USER dari user {message.user_number}')
+            print(f'{Fore.RED}{Back.WHITE}INFO: ADA SIGNAL AZANA USER DARI {message.user_number}{Fore.RESET}{Back.RESET}')
+            await admin.notify_admin(f'INFO: signal AZANA USER dari user {message.user_number}')
             dbo.insert_info_cs(conv_obj.user_number, int(message.timestamp), cfg['CONFIG']['DB_FILE'])
             #return cfg['SALES_CS']['GREETING']            
 
@@ -120,8 +141,8 @@ class MsgProcessor:
             conv_obj.persona = Persona.ASSISTANT
             pf.set_persona(Persona.SALES_CS, conv_obj)
             conv_obj.free_gpt = True
-            print(f'{Fore.RED}{Back.WHITE}ADA SIGNAL INFO_CS DARI {message.user_number}{Fore.RESET}{Back.RESET}')
-            await admin.notify_admin(f'signal INFO_CS dari user {message.user_number}')
+            print(f'{Fore.RED}{Back.WHITE}INFO: ADA SIGNAL INFO_CS DARI {message.user_number}{Fore.RESET}{Back.RESET}')
+            await admin.notify_admin(f'INFO: signal INFO_CS dari user {message.user_number}')
             dbo.insert_info_cs(conv_obj.user_number, int(message.timestamp), cfg['CONFIG']['DB_FILE'])
             return cfg['SALES_CS']['GREETING']            
 
@@ -144,10 +165,9 @@ class MsgProcessor:
             message.text = message.text[len(conv_obj.bot_name):].strip()
 
         #ignore looping error admin notif send
-        if message.text.lower().startswith("ada error") or message.text.lower().startswith("konfirmasi signal"):
+        if message.text.lower().startswith("ada error") or message.text.lower().startswith("INFO:"):
             return None
 
-        
         # PRA PROCESSING MESSAGE - buang aja karakter unicode dan quote
         message.text = str(message.text)
         message.text = message.text.encode('ascii', errors='ignore').decode()
@@ -203,13 +223,13 @@ class MsgProcessor:
             if "ok" in message.text.lower():
                 return "oke juga"
 
-
         # JUST RETURN IT
         return "pfft..."
 
     #WA YANG DATANG DARI WA BISNIS MASUK KE FUNGSI INI.
     async def chan1_process(self, conv_obj: Conversation, message: Message) -> Union[str, None, str]:
         """Prosedur ini memproses Terima pesan dari WA"""
+        
         #ct.pra_proses(conv_obj)
         print(f"{Fore.YELLOW}Got BOT:{conv_obj.bot_number} - USER NUMBER:{conv_obj.user_number}({conv_obj.user_name})")
         print(f"Message: {message.text}")
@@ -218,6 +238,9 @@ class MsgProcessor:
         nama_bot = conv_obj.bot_name.lower()
         awalan = message.text[:len(nama_bot)].lower()
 
+        if self.is_bot(message):
+            return None
+        
         if self.is_ignored(message):
             print(f'{Fore.WHITE}{Back.RED}MESSAGE IGNORED{Fore.RESET}{Back.RESET}')
             return None
@@ -233,13 +256,13 @@ class MsgProcessor:
 
         #kalau ada penanya baru tentang kamar kos
         if any(word in message.text.lower() for word in ["azana", "kos", "kost", "kosan", "kamar"]):
-            #menghindari loop
-            if not self.is_admin(message):
+            #menghindari loop kalau bukan admin atau group
+            if not self.is_admin(message) and not self.is_group(message):
                 conv_obj.persona = Persona.ASSISTANT
                 pf.set_persona(Persona.SALES_CS, conv_obj)
                 conv_obj.free_gpt = True
-                print(f'{Fore.RED}{Back.WHITE}ADA SIGNAL DARI {message.user_number}{Fore.RESET}{Back.RESET}')
-                await admin.notify_admin(f'signal pertanyaan dari user {message.user_number}')
+                print(f'{Fore.RED}{Back.WHITE}INFO: ADA SIGNAL DARI {message.user_number}{Fore.RESET}{Back.RESET}')
+                await admin.notify_admin(f'INFO: signal pertanyaan dari user {message.user_number}')
                 dbo.insert_info_cs(conv_obj.user_number, int(message.timestamp), cfg['CONFIG']['DB_FILE'])
                 #return cfg['SALES_CS']['GREETING']            
 
@@ -264,10 +287,10 @@ class MsgProcessor:
             message.text = message.text[len(conv_obj.bot_name):].strip()
 
         #ignore looping error admin notif send
-        if message.text.lower().startswith("ada error") or message.text.lower().startswith("konfirmasi signal"):
+        if message.text.lower().startswith("ada error") or message.text.lower().startswith("INFO:"):
             return None
 
-        
+
         # PRA PROCESSING MESSAGE - buang aja karakter unicode dan quote
         message.text = str(message.text)
         message.text = message.text.encode('ascii', errors='ignore').decode()
@@ -291,38 +314,10 @@ class MsgProcessor:
         if conv_obj.persona == Persona.SALES_CS:
             response = cs.ask_agent(user_prompt=message.text)
             if int(response['score']) < 5:
-                print(f'{Fore.RED}{Back.WHITE}ADA JAWABAN LOW SCORE - {message.user_number}{Fore.RESET}{Back.RESET}')
-                await admin.notify_admin(f'ADA JAWABAN LOW SCORE {response["score"]} - {message.user_number}\n\n{message.text}\n\n{response["response"]}')
+                print(f'{Fore.RED}{Back.WHITE}INFO: ADA JAWABAN LOW SCORE - {message.user_number}{Fore.RESET}{Back.RESET}')
+                await admin.notify_admin(f'INFO: ADA JAWABAN LOW SCORE {response["score"]} - {message.user_number}\n\n{message.text}\n\n{response["response"]}')
             return response['response']
 
-        if conv_obj.free_gpt:
-            return await friend.run(self, conv_obj, message)
-
-        if conv_obj.convtype == ConvType.ADMIN:
-            return await admin.run(self, conv_obj, message.text) 
-
-        if conv_obj.convtype == ConvType.PLATINUM:
-            return await platinum.run(self, conv_obj, message)
-
-        if conv_obj.convtype == ConvType.GOLD:
-            return await gold.run(self, conv_obj, message)
-
-        if conv_obj.convtype == ConvType.FRIEND:
-            return await friend.run(self, conv_obj, message)
-
-        if conv_obj.convtype == ConvType.DEMO:
-            return await demo.run(self, conv_obj, message)
-
-        # PROCESS BY PERSONA AND MODE
-        if conv_obj.convmode == ConvMode.YESNO:
-            if "y" in message.text.lower():
-                return "Kamu menjawab ya"
-            if "t" in message.text.lower():
-                return "Kamu menjawab tidak"
-
-        if conv_obj.convmode == ConvMode.ASK:
-            if "ok" in message.text.lower():
-                return "oke juga"
 
 
         # JUST RETURN IT
