@@ -4,7 +4,7 @@ import toml
 from typing import Union
 import db_oper as dbo
 import admin_func as admin
-
+import pprint
 
 #from queue import Queue
 import asyncio
@@ -60,7 +60,13 @@ class MsgProcessor:
             return True
         return False
         
-        
+    def is_StartWithBotName(self, conv_obj: Conversation,  message: Message) -> bool:
+        if message.text[:len(conv_obj.bot_name)].lower() == conv_obj.bot_name:
+            return True
+        return False        
+
+    def pre_process(self, conv_obj: Conversation, message: Message):
+        pass
         
     #LOOP TIKET UNTUK OOBA - tidur 2 detik tapi antri
     async def process_queue_ooba(self):
@@ -125,17 +131,6 @@ class MsgProcessor:
                 await admin.notify_admin(f'INFO: konfirmasi signal from group {message.user_number} or {message.author}')
             else:
                 await admin.notify_admin(f'INFO: konfirmasi signal at japrian {message.user_number}')
-
-        #kalau ada penanya baru tentang kamar kos
-        if any(word in message.text.lower() for word in ["azana", "kos", "kost", "kosan", "kamar"]):
-            conv_obj.persona = Persona.KOS_CS
-            pf.set_persona(Persona.KOS_CS, conv_obj)
-            conv_obj.free_gpt = True
-            print(f'{Fore.RED}{Back.WHITE}INFO: ADA SIGNAL AZANA USER DARI {message.user_number}{Fore.RESET}{Back.RESET}')
-            await admin.notify_admin(f'INFO: signal AZANA USER dari user {message.user_number}')
-            dbo.insert_info_cs(conv_obj.user_number, int(message.timestamp), cfg['CONFIG']['DB_FILE'])
-            #return cfg['SALES_CS']['GREETING']            
-
 
         if "info_cs" in message.text.lower():
             conv_obj.persona = Persona.ASSISTANT
@@ -226,18 +221,21 @@ class MsgProcessor:
         # JUST RETURN IT
         return "pfft..."
 
+
     #WA YANG DATANG DARI WA BISNIS MASUK KE FUNGSI INI.
-    async def chan1_process(self, conv_obj: Conversation, message: Message) -> Union[str, None, str]:
+    async def chan1_process(self, conv_obj: Conversation, message: Message) -> Union[str, None]:
         """Prosedur ini memproses Terima pesan dari WA"""
         
         #ct.pra_proses(conv_obj)
         print(f"{Fore.YELLOW}Got BOT:{conv_obj.bot_number} - USER NUMBER:{conv_obj.user_number}({conv_obj.user_name})")
         print(f"Message: {message.text}")
         print( f"{Fore.LIGHTMAGENTA_EX}ft:{conv_obj.free_tries}, ct:{conv_obj.convtype}, fc:{conv_obj.funny_counter}{Style.RESET_ALL}")
-            
+        
+        conv_obj.bot_name = conv_obj.bot_name.lower()    
         nama_bot = conv_obj.bot_name.lower()
-        awalan = message.text[:len(nama_bot)].lower()
 
+
+            
         if self.is_bot(message):
             return None
         
@@ -277,7 +275,9 @@ class MsgProcessor:
                 try:
 
                     result = await api.ask_gpt(self, conv_obj, f'{preprompt}{message.text}')
+                    pprint.pp(result)
                     return result
+                
                 except:
                     return None
             return None

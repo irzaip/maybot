@@ -29,6 +29,7 @@ class Persona(str, Enum):
     KOBOLD = auto()
     SALES_CS = auto()
     KOS_CS = auto()
+    FIT_TRAINER = auto()
 
 class ConvType(str, Enum):
     DEMO = auto()
@@ -127,13 +128,9 @@ class Conversation():
         self.gpt_token_used = 0
         self.daily_free_gpt = 5
         self.paid_messages = 0
-        #self.rivebot = RiveScript()
         self.anti_flood = []
         self.max_promo = 5
         self.max_funny = 7
-        # self.rivebot.load_directory('./rive/brain')
-        # self.rivebot.sort_replies()
-        self.set_script(self.script)        
         cf.add_system(self, cfg['ASSISTANT']['M_S'])
         cf.add_role_user(self, cfg['ASSISTANT']['M_U'])
         cf.add_role_assistant(self, cfg['ASSISTANT']['M_A'])
@@ -147,29 +144,6 @@ class Conversation():
             return True
         else:
             return False
-    def set_script(self, script: Script) -> None:
-        all_scripts = {
-            'BRAIN' : './rive/brain',
-            'DEPARSE' : './rive/deparse',
-            'JS-OBJECTS' : './rive/js-objects',
-            'JSON-SERVER' : './rive/json-server',
-            'PARSER' : './rive/parser',
-            'SESSIONS' : './rive/sessions',
-            'NEWCOMER' : './rive/newcomer',
-            'INTERVIEW' : './rive/interview',
-        }
-        #self.rivebot = RiveScript()
-        #self.rivebot.load_directory(all_scripts[script.name])
-        #self.rivebot.sort_replies()
-        #print(f"Loaded {script}")
-
-    #def reinit_rive(self, script_file) -> None:
-    #    self.rivebot.load_directory(script_file)
-    #    self.rivebot.sort_replies()
-
-    #def rivereply(self, message) -> str:
-    #    reply = self.rivebot.reply("localuser", message)
-    #    return reply
 
      
     def get_user_number(self) -> str:
