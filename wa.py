@@ -26,6 +26,7 @@ from db_oper import (
     get_all_conversations_sql,
     get_conversation_count,
 )
+from backend.media_helpers import make_media_response, encode_relative
 import toml
 from queue import Queue
 from datetime import datetime
@@ -860,6 +861,48 @@ async def test_send(user_number: str) -> dict:
         return {"message": response.text}
     else:
         return {"message": "error sending test"}
+
+
+@app.post("/messages/media")
+async def test_media_media() -> dict:
+    """Test endpoint - returns text + image/pdf from media/ directory"""
+    text = "Ini pesan dengan lampiran!"
+
+    attachments = []
+
+    jpg_att = encode_relative("test.jpg", "image/jpeg", "test.jpg")
+    if jpg_att:
+        attachments.append(jpg_att)
+
+    pdf_att = encode_relative("test.pdf", "application/pdf", "test.pdf")
+    if pdf_att:
+        attachments.append(pdf_att)
+
+    if attachments:
+        return make_media_response(text, attachments)
+    else:
+        return {"message": text + " (no media files found)"}
+
+
+@app.post("/api/test_media/{user_number}")
+async def test_media(user_number: str, message: Optional[Message] = None) -> dict:
+    """Test endpoint - returns text + image/pdf from media/ directory"""
+    text = "Ini pesan dengan lampiran!"
+
+    attachments = []
+
+    jpg_att = encode_relative("test.jpg", "image/jpeg", "test.jpg")
+    if jpg_att:
+        attachments.append(jpg_att)
+
+    pdf_att = encode_relative("test.pdf", "application/pdf", "test.pdf")
+    if pdf_att:
+        attachments.append(pdf_att)
+
+    if attachments:
+        return make_media_response(text, attachments)
+    else:
+        return {"message": text + " (no media files found)"}
 
 
 @app.get("/ping")
