@@ -85,7 +85,7 @@ class Message(BaseModel):
 class MessageContent(BaseModel):
     """Class untuk bikin system.message ataupun role message content"""
     user_number: str
-    bot_number: str = "6285775300227@c.us"
+    bot_number: str = cfg['CONFIG']['BOT_NUMBER']
     message: str
     role: str = "SYSTEM"
 
@@ -93,7 +93,7 @@ class Conversation():
     """create conversation object unique to user"""
     def __init__(self, user_number: str, bot_number: str) -> None:
         if not bot_number:
-            bot_number = "6285775300227@c.us"
+            bot_number = cfg['CONFIG']['BOT_NUMBER']
         self.bot_name = "Maya"
         self.script =Script.BRAIN
         self.convmode=ConvMode.CHITCHAT
@@ -113,13 +113,10 @@ class Conversation():
         self.last_question = 0
         self.question_asked = ""
         self.user_name = ""
-        self.free_tries = 0
         self.profanity = False
         self.user_fullinfo = {}
         self.open_ai_key = ""
         self.profanity_counter = 7
-        self.funny_counter = 4
-        self.promo_counter = 7
         self.group_title = ""
         self.free_gpt = False
         self.demo_user = True
@@ -129,15 +126,9 @@ class Conversation():
         self.daily_free_gpt = 5
         self.paid_messages = 0
         self.anti_flood = []
-        self.max_promo = 5
-        self.max_funny = 7
         cf.add_system(self, cfg['ASSISTANT']['M_S'])
         cf.add_role_user(self, cfg['ASSISTANT']['M_U'])
         cf.add_role_assistant(self, cfg['ASSISTANT']['M_A'])
-        if self.is_group(user_number):
-            self.free_tries = 25
-        else:
-            self.free_tries = 15
 
     def is_group(self, user_number: str):
         if user_number.endswith("@g.us"):
@@ -218,8 +209,6 @@ class Conversation():
             'user_fullinfo' : self.user_fullinfo,
             'open_ai_key' : self.open_ai_key,
             'profanity_counter' : self.profanity_counter,
-            'funny_counter' : self.funny_counter,
-            'promo_counter' : self.promo_counter,
             'group_title' : self.group_title,
             'free_gpt' : self.free_gpt,
             'demo_user' : self.demo_user,
@@ -228,9 +217,6 @@ class Conversation():
             'gpt_token_used' : self.gpt_token_used,
             'daily_free_gpt' : self.daily_free_gpt,
             'paid_messages' : self.paid_messages,
-            'free_tries' : self.free_tries,
-            'max_promo' : self.max_promo,
-            'max_funny' : self.max_funny,
             'anti_flood' : self.anti_flood,
         }
         return json.dumps(obj)
@@ -255,8 +241,6 @@ class Conversation():
         self.user_fullinfo = obj['user_fullinfo']
         self.open_ai_key = obj['open_ai_key']
         self.profanity_counter = obj['profanity_counter']
-        self.funny_counter = obj['funny_counter']
-        self.promo_counter = obj['promo_counter']
         self.group_title = obj['group_title']
         self.free_gpt = obj['free_gpt']
         self.demo_user = obj['demo_user']
@@ -265,9 +249,6 @@ class Conversation():
         self.gpt_token_used = obj['gpt_token_used']
         self.daily_free_gpt = obj['daily_free_gpt']
         self.paid_messages = obj['paid_messages']
-        self.free_tries = obj['free_tries']
-        self.max_promo = obj['max_promo']
-        self.max_funny = obj['max_funny']
         return "Done"
     
 

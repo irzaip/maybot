@@ -13,7 +13,7 @@ import toml
 cfg = toml.load('config.toml')
 
 server_address = 'http://192.168.30.50:8998'
-BOT_NUMBER = "6285775300227@c.us"
+BOT_NUMBER = cfg['CONFIG']['BOT_NUMBER']
 
 def create_conv(user_number, bot_number):
     response = requests.put(f'{server_address}/create_conv/{user_number}/{bot_number}')
@@ -208,14 +208,6 @@ def set_maintenance() -> None:
         print(f'SET MAINTENANCE: {response.text}')
     else:
         print(f'Error set maintenance mode')
-
-def tambah_free_tries(user_number, unit: int):
-    url = f'{server_address}/tambah_free_tries/{user_number}/{unit}'
-    response = requests.put(url)
-    if response.ok:
-        print(f'{user_number} sudah di tambah {unit} free tries')
-    else:
-        print(f'gagal menambah {user_number} sejumlah {unit} free tries')
 
 def tambah_paid_messages(user_number, unit: int):
     url = f'{server_address}/tambah_paid_messages/{user_number}/{unit}'

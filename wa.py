@@ -354,7 +354,6 @@ async def get_admin_conversations(
                 "convtype": convtype_val.split(".")[-1]
                 if "." in convtype_val
                 else convtype_val,
-                "free_tries": conv_obj.free_tries,
                 "paid_messages": conv_obj.paid_messages,
                 "last_active": getattr(conv_obj, "last_active", None),
                 "message_count": len(conv_obj.messages),
@@ -589,9 +588,8 @@ async def set_bot_name(user_number: str, bot_name: str) -> Union[dict, dict, Non
 
 KOS_KEYWORDS = ["kos", "azana", "kamar", "kost", " sewa ", "penginapan", "hostel", "inn"]
 
-@app.post("/messages")
-async def receive_message(request: Request):
-    """Endpoint menerima pesan dari WhatsApp (index.js)"""
+async def _handle_message(request: Request, *, kos_routing: bool, group_prefix_required: bool):
+    """Shared handler untuk /messages dan /special_messages"""
     try:
         data = await request.json()
     except Exception:
@@ -599,11 +597,17 @@ async def receive_message(request: Request):
 
     text = data.get("text", "")
     user_number = data.get("user_number", "")
+    bot_number = data.get("bot_number", "")
 
-    if user_number.endswith("@g.us") or user_number.endswith("@broadcast") or user_number.endswith("@newsletter"):
+    if user_number.endswith("@broadcast") or user_number.endswith("@newsletter"):
         return
 
-    bot_number = data.get("bot_number", "")
+    if not group_prefix_required and user_number in cfg["CONFIG"]["BOT_NUMBER"] and bot_number in cfg["CONFIG"]["ADMIN_NUMBER"]:
+        return
+
+    if not group_prefix_required and user_number.endswith("@g.us"):
+        return
+
     timestamp = data.get("timestamp", 0)
     notifyName = data.get("notifyName", "")
     msg_type = data.get("type", "chat")
@@ -615,13 +619,14 @@ async def receive_message(request: Request):
     if not user_number or not text:
         return
 
-    is_new_user = user_number not in conversations
-    text_lower = text.lower()
-    has_kos_keyword = any(kw in text_lower for kw in KOS_KEYWORDS)
+    if group_prefix_required and user_number.endswith("@g.us"):
+        if user_number not in conversations:
+            add_conversation(user_number=user_number, bot_number=bot_number)
+        bot_name = conversations[user_number].bot_name.lower()
+        if not text.lower().startswith(bot_name):
+            return
 
-    if is_new_user and not has_kos_keyword:
-        print(f"📪 New user tanpa KOS keyword - ignored")
-        return
+    is_new_user = user_number not in conversations
 
     if is_new_user:
         add_conversation(user_number=user_number, bot_number=bot_number)
@@ -632,12 +637,18 @@ async def receive_message(request: Request):
     if notifyName:
         conversation_obj.user_name = notifyName
 
-    if is_new_user and has_kos_keyword:
-        print(f"🎯 New user dengan keyword kos - set persona ke KOS_CS")
-        pf.set_persona(Persona.KOS_CS, conversation_obj)
-        cf.add_system(conversation_obj, cfg['KOS_CS']['M_S'])
-        cf.add_role_user(conversation_obj, cfg['KOS_CS']['M_U'])
-        cf.add_role_assistant(conversation_obj, cfg['KOS_CS']['M_A'])
+    if kos_routing:
+        text_lower = text.lower()
+        has_kos_keyword = any(kw in text_lower for kw in KOS_KEYWORDS)
+        if is_new_user and not has_kos_keyword:
+            print(f"📪 New user tanpa KOS keyword - ignored")
+            return
+        if is_new_user and has_kos_keyword:
+            print(f"🎯 New user dengan keyword kos - set persona ke KOS_CS")
+            pf.set_persona(Persona.KOS_CS, conversation_obj)
+            cf.add_system(conversation_obj, cfg['KOS_CS']['M_S'])
+            cf.add_role_user(conversation_obj, cfg['KOS_CS']['M_U'])
+            cf.add_role_assistant(conversation_obj, cfg['KOS_CS']['M_A'])
 
     msg_obj = Message(
         text=text,
@@ -654,78 +665,6 @@ async def receive_message(request: Request):
 
     try:
         response_text = await msgprocess.process(conversation_obj, message=msg_obj)
-        if response_text is None:
-            return {"message": "none"}
-    except Exception as err:
-        print(
-            f"{Fore.RED}{Back.WHITE}>>>>>>>>>>>>>>>> ERROR : "
-            + f"{str(err)} <<<<<<<<<<<<<<<<<<<<<{Fore.WHITE}{Back.BLACK}"
-        )
-        try:
-            await notify_admin(f"Ada error {str(err)} nih! dari {user_number}")
-        except:
-            pass
-        conversation_obj.anti_flood = []
-        return {"message": return_brb()}
-
-    update_db_connection(
-        user_number=user_number,
-        bot_number=bot_number,
-        result=conversation_obj.get_params(),
-        db_name=DB_PATH,
-    )
-
-    return {"message": str(response_text)}
-
-
-@app.post("/special_messages")
-async def receive_special_message(request: Request):
-    """Endpoint menerima pesan dari WhatsApp (variant of /messages)"""
-    try:
-        data = await request.json()
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid JSON")
-
-    text = data.get("text", "")
-    user_number = data.get("user_number", "")
-
-    if user_number.endswith("@broadcast") or user_number.endswith("@newsletter"):
-        return
-
-    bot_number = data.get("bot_number", "")
-    timestamp = data.get("timestamp", 0)
-    notifyName = data.get("notifyName", "")
-    msg_type = data.get("type", "chat")
-    client = data.get("client", "whatsapp")
-    author = data.get("author", "")
-    hasMedia = data.get("hasMedia", False)
-    message_dict = data.get("message", {})
-
-    if not user_number or not text:
-        return
-
-    if user_number not in conversations:
-        add_conversation(user_number=user_number, bot_number=bot_number)
-
-    conversation_obj = conversations[user_number]
-    if notifyName:
-        conversation_obj.user_name = notifyName
-
-    msg_obj = Message(
-        text=text,
-        user_number=user_number,
-        bot_number=bot_number,
-        timestamp=timestamp,
-        notifyName=notifyName,
-        type=msg_type,
-        client=client,
-        author=author,
-        hasMedia=hasMedia,
-        message=message_dict
-    )
-
-    try:
-        response_text = await msgprocess.chan1_process(conversation_obj, message=msg_obj)
         if response_text is None:
             return {"message": ""}
     except Exception as err:
@@ -748,6 +687,18 @@ async def receive_special_message(request: Request):
     )
 
     return {"message": str(response_text)}
+
+
+@app.post("/messages")
+async def receive_message(request: Request):
+    """Endpoint menerima pesan dari WhatsApp (index.js)"""
+    return await _handle_message(request, kos_routing=True, group_prefix_required=False)
+
+
+@app.post("/special_messages")
+async def receive_special_message(request: Request):
+    """Endpoint alternatif - @g.us harus +bot_name prefix"""
+    return await _handle_message(request, kos_routing=False, group_prefix_required=True)
 
 
 @app.get("/print_messages/{user_number}")
@@ -905,14 +856,6 @@ async def change_interval(user_number: str, interval: int) -> dict[str, str]:
         return {"message": "user does not exist"}
     conversations[user_number].set_interval(interval)
     return {"message": f"sudah di set menjadi {interval}"}
-
-
-@app.put("/tambah_free_tries/{user_number}/{unit}")
-async def tambah_free_tries(user_number: str, unit: int):
-    if user_number not in conversations:
-        return {"message": "user does not exist"}
-    ct.tambah_free_tries(conversations[user_number], jumlah=unit)
-    return {"message": f"user {user_number} sudah di tambah {unit} free tries"}
 
 
 @app.put("/tambah_paid_messages/{user_number}/{unit}")

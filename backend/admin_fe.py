@@ -112,9 +112,6 @@ def main():
     def tambah_paid_messages_(user_number: str, unit: int):
         cp.tambah_paid_messages(clean_(user_number), unit)
 
-    def tambah_free_tries_(user_number: str, unit: int):
-        cp.tambah_free_tries(clean_(user_number), unit)
-
     def toggle_free_gpt_(user_number: str):
         cp.toggle_free_gpt(clean_(user_number))
 
@@ -207,8 +204,6 @@ def main():
             st_convtype.style(size='sm', full_width=False)
 
             unit = gr.Textbox(label="unit", interactive=True)
-            st_free_tries = gr.Button(value="Set Free")
-            st_free_tries.style(size='sm', full_width=False)
             st_paid_messages = gr.Button(value="Set Paid")
             st_paid_messages.style(size='sm', full_width=False)
             
@@ -239,7 +234,6 @@ def main():
         reset_ch.click(fn=reset_channel_, inputs=contacts)
         retrieve_data.click(fn=_conversation_info, inputs=contacts, outputs=[json_msg, sys_msg, user_msg,assistant_msg, interval, persona, convmode, intro_msg, outro_msg, bot_name, user_name])
         st_convtype.click(fn=set_convtype_ , inputs=[contacts, convtype])
-        st_free_tries.click(fn=tambah_free_tries_, inputs=[contacts,unit])
         st_paid_messages.click(fn=tambah_paid_messages_, inputs=[contacts,unit])
         st_persona.click(fn=set_persona_, inputs=[contacts, persona])
         st_convmode.click(fn=set_convmode_, inputs=[contacts, convmode])

@@ -104,7 +104,7 @@ class MsgProcessor:
         #ct.pra_proses(conv_obj)
         print(f"{Fore.YELLOW}Got BOT:{conv_obj.bot_number} - USER NUMBER:{conv_obj.user_number}({conv_obj.user_name})")
         print(f"Message: {message.text}")
-        print( f"{Fore.LIGHTMAGENTA_EX}ft:{conv_obj.free_tries}, ct:{conv_obj.convtype}, fc:{conv_obj.funny_counter}{Style.RESET_ALL}")
+        print( f"{Fore.LIGHTMAGENTA_EX}ct:{conv_obj.convtype}{Style.RESET_ALL}")
             
         nama_bot = conv_obj.bot_name.lower()
         awalan = message.text[:len(nama_bot)].lower()
@@ -193,7 +193,6 @@ class MsgProcessor:
                     if score_val < 5:
                         print(f'{Fore.RED}{Back.WHITE}LOW SCORE: {score} - {message.user_number}{Fore.RESET}{Back.RESET}')
                         try:
-                            from backend.functions import admin_func as admin
                             admin.notify_admin(f'LOW SCORE {score} - {message.user_number}\n\n{message.text}\n\n{response["response"]}')
                         except:
                             pass
@@ -232,104 +231,6 @@ class MsgProcessor:
 
         # JUST RETURN IT
         return "pfft..."
-
-
-    #WA YANG DATANG DARI WA BISNIS MASUK KE FUNGSI INI.
-    async def chan1_process(self, conv_obj: Conversation, message: Message) -> Union[str, None]:
-        """Prosedur ini memproses Terima pesan dari WA"""
-        
-        #ct.pra_proses(conv_obj)
-        print(f"{Fore.YELLOW}Got BOT:{conv_obj.bot_number} - USER NUMBER:{conv_obj.user_number}({conv_obj.user_name})")
-        print(f"Message: {message.text}")
-        print( f"{Fore.LIGHTMAGENTA_EX}ft:{conv_obj.free_tries}, ct:{conv_obj.convtype}, fc:{conv_obj.funny_counter}{Style.RESET_ALL}")
-        
-        conv_obj.bot_name = conv_obj.bot_name.lower()    
-        nama_bot = conv_obj.bot_name.lower()
-
-
-            
-        if self.is_bot(message):
-            return None
-        
-        if self.is_ignored(message):
-            print(f'{Fore.WHITE}{Back.RED}MESSAGE IGNORED{Fore.RESET}{Back.RESET}')
-            return None
-
-        print(f"admin: {self.is_admin(message)}, dot:{message.text.startswith('.')}")
-        #ADMIN COMMAND.
-        if self.is_admin(message) and (nama_bot == awalan):
-            return await admin.run(self, conv_obj, message.text) 
-
-        if message.text.startswith('.'):
-            if self.is_admin(message):
-                return await admin.run(self, conv_obj, message.text)
-
-        #kalau ada penanya baru tentang kamar kos
-        if any(word in message.text.lower() for word in ["azana", "kos", "kost", "kosan", "kamar"]):
-            #menghindari loop kalau bukan admin atau group
-            if not self.is_admin(message) and not self.is_group(message):
-                conv_obj.persona = Persona.ASSISTANT
-                pf.set_persona(Persona.SALES_CS, conv_obj)
-                conv_obj.free_gpt = True
-                print(f'{Fore.RED}{Back.WHITE}INFO: ADA SIGNAL DARI {message.user_number}{Fore.RESET}{Back.RESET}')
-                await admin.notify_admin(f'INFO: signal pertanyaan dari user {message.user_number}')
-                dbo.insert_info_cs(conv_obj.user_number, int(message.timestamp), cfg['CONFIG']['DB_FILE'])
-                #return cfg['SALES_CS']['GREETING']            
-
-
-
-        #abaikan msg group ini, kecuali panjang.
-        if (conv_obj.need_group_prefix) and (message.author != '') and ( nama_bot != awalan ):
-            #kecuali postingan panjang.
-            if len(message.text.lower().split(" ")) > 25:
-                print(f'{Fore.RED}{Back.WHITE}LONG POSTING DETECTED!.. i will comment{Fore.RESET}{Back.RESET}')
-                preprompt = f"Maya berikan jawaban berupa komentar baik dan pendek pada postingan ini. Jangan gunakan hashtag dalam jawaban.\n\n"
-                try:
-
-                    result = await api.ask_gpt(self, conv_obj, f'{preprompt}{message.text}')
-                    pprint.pp(result)
-                    return result
-                
-                except:
-                    return None
-            return None
-
-        #potong awalan
-        if awalan == nama_bot:
-            message.text = message.text[len(conv_obj.bot_name):].strip()
-
-        #ignore looping error admin notif send
-        if message.text.lower().startswith("ada error") or message.text.lower().startswith("INFO:"):
-            return None
-
-
-        # PRA PROCESSING MESSAGE - buang aja karakter unicode dan quote
-        message.text = str(message.text)
-        message.text = message.text.encode('ascii', errors='ignore').decode()
-        message.text = message.text.replace("'"," ").replace('"',' ')
-
-
-        print("-------------------------------------------------")
-        print(f"{Fore.GREEN}{Style.BRIGHT}Message:",message)
-        print(f"{Style.RESET_ALL}-------------------------------------------------")
-
-        #TODO: Please to be removed or changed
-        human_say = "HUMAN: "+message.text
-        dbo.insert_conv(conv_obj.user_number, conv_obj.bot_number, int(message.timestamp), human_say, self.db_file)
-
-        # on maintenance
-        if self.on_maintenance and not self.is_admin(message):
-            print(f"{Fore.RED}{Back.WHITE}Called.. But ON MAINTENANCE NOW{Fore.WHITE}{Back.BLACK}")
-            return "*BRB* - Be Right Back .. ZzzZzz ZZzzzz.."
-
-        #fungsi menjawab kos_cs
-        if conv_obj.persona == Persona.SALES_CS:
-            response = cs.ask_agent(user_prompt=message.text)
-            if int(response['score']) < 5:
-                print(f'{Fore.RED}{Back.WHITE}INFO: ADA JAWABAN LOW SCORE - {message.user_number}{Fore.RESET}{Back.RESET}')
-                await admin.notify_admin(f'INFO: ADA JAWABAN LOW SCORE {response["score"]} - {message.user_number}\n\n{message.text}\n\n{response["response"]}')
-            return response['response']
-
 
 
         # JUST RETURN IT
