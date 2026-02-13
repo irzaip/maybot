@@ -17,7 +17,7 @@ cfg = toml.load('config.toml')
 
 async def ask_gpt(main_obj, conv_obj: Conversation, prompt: str, memory: bool = True, write_db: bool = True) -> str:
     """
-    Akses API ke OpenAI, dari prompt menjadi hasil string        
+    Akses API ke OLLAMA, dari prompt menjadi hasil string        
     input: masuknya list dari Object Conversation.messages
     """
     # write db bagian prompt

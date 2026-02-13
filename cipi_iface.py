@@ -74,12 +74,6 @@ def set_message(user_number, message, role: Role):
     else:
         print(f"Error sending message. Status code: {response.status_code}")
 
-def set_script(user_number: str, script: Script):
-    response = requests.put(f'{server_address}/set_script/{user_number}/{Script[script].value}')
-    if response.ok:
-        print(f'Hasil set script {user_number} : {response.text}')
-    else:
-        print(f"Error creating Script for {user_number}")
 
 def start_question(user_number: str):
     response = requests.get(f'{server_address}/start_question/{user_number}')

@@ -38,5 +38,4 @@ def get_answer(conv_obj: Conversation, message: Message):
         except Exception as e:
             print(e)                 
     conv_obj.convmode = ConvMode.CHITCHAT
-    conv_obj.set_script(Script.BRAIN)
     return conv_obj.outro_msg

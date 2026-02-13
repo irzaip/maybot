@@ -100,9 +100,6 @@ def main():
         cp.set_message(user_number=user_number, message=message, role=Role.ASSISTANT)
     
 
-    def set_script_(user_number: str, script: Script): 
-        cp.set_script(clean_(user_number), script=script)
-
     def set_convmode_(user_number: str, convmode: ConvMode):
         cp.set_convmode(clean_(user_number), convmode=convmode)
 

@@ -171,4 +171,8 @@ cython_debug/
 .pypirc
 
 *.db
+
+
+frontend/node_modules/*
+
 .cipibot.db
