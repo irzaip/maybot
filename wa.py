@@ -1,23 +1,16 @@
-from fastapi import (
-    FastAPI,
-    Query,
-    HTTPException,
-    WebSocket,
-    WebSocketDisconnect,
-    Depends,
-)
+from fastapi import FastAPI, Query, HTTPException, WebSocket, WebSocketDisconnect, Depends, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.gzip import GZipMiddleware
-from conversations import Message, BotQuestion, ConvMode, Script, ConvType
-from conversations import MessageContent, Conversation, Persona
-from Msgproc import MsgProcessor
+from backend.conversations import Message, BotQuestion, ConvMode, Script, ConvType
+from backend.conversations import MessageContent, Conversation, Persona
+from backend.Msgproc import MsgProcessor
 import requests, os, random, sys, json
 from typing import List, Union, Dict, Any, Optional
 import asyncio
 import nest_asyncio
 import random, string
 import logging
-from db_oper import (
+from backend.db_oper import (
     new_db_connection,
     update_db_connection,
     get_db_all_connection,
@@ -26,16 +19,43 @@ from db_oper import (
     get_all_conversations_sql,
     get_conversation_count,
 )
-from backend.media_helpers import make_media_response, encode_relative
+from backend.utils.media_helpers import make_media_response, encode_relative
 import toml
 from queue import Queue
 from datetime import datetime
 import uvicorn
 from colorama import just_fix_windows_console, Fore, Back, Style
-import counting as ct
-import persona_func as pf
-import conv_func as cf
+from backend.functions import counting as ct
+from backend.functions import persona_func as pf
+from backend.functions import conv_func as cf
+from backend.functions import (
+    admin_func,
+    demo_func,
+    friend_func,
+    gold_func,
+    platinum_func,
+    reduksi,
+    trans_id,
+    interview,
+    kos_agent,
+    sd_agent,
+    apicall_,
+)
+from backend.agents import (
+#    agent1,
+#    agent2,
+#    agent3,
+#    agent4,
+ #   agent5,
+ #   agent6,
+ #   agent7,
+ #   agent8,
+    agent_info_cs,
+)
 from fastapi.middleware.cors import CORSMiddleware
+
+AGENT_ZERO_URL = "http://localhost:32770/api_message"
+AGENT_ZERO_API_KEY = "62D9d6ENLvUImDRH"
 
 
 just_fix_windows_console()
@@ -43,7 +63,7 @@ cfg = toml.load("config.toml")
 
 CONFIG = {}
 # queue = Queue()
-msgprocess = MsgProcessor(db_file="cipibot.db")
+msgprocess = MsgProcessor(db_file="backend/data/cipibot.db")
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -75,22 +95,24 @@ app.add_middleware(
 # Add GZip middleware for compression
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
+DB_PATH = "backend/data/cipibot.db"
+
 conversations = {}
-db_result = get_db_all_connection("cipibot.db")
+db_result = get_db_all_connection(DB_PATH)
 
 
 def add_conversation(user_number: str, bot_number: str) -> None:
     """create new conversation object"""
     conversations.update({user_number: Conversation(user_number, bot_number)})
     result = get_db_connection(
-        user_number=user_number, bot_number=bot_number, db_name="cipibot.db"
+        user_number=user_number, bot_number=bot_number, db_name=DB_PATH
     )
     if not result:
         new_db_connection(
             user_number=user_number,
             bot_number=bot_number,
             result=conversations[user_number].get_params(),
-            db_name="cipibot.db",
+            db_name=DB_PATH,
         )
 
 
@@ -136,6 +158,66 @@ def send_to_phone(user_number: str, bot_number: str, message: str):
         return "Message sent successfully!"
     else:
         return f"Error sending message. Status code: {response.status_code}"
+
+
+def send_to_agent_zero(
+    message: str,
+    context_id: Optional[str] = None,
+    lifetime_hours: int = 24,
+    project: Optional[str] = None,
+    attachments: Optional[list] = None
+) -> dict:
+    """Kirim pesan ke Agent Zero API dan terima respons."""
+    headers = {
+        "Content-Type": "application/json",
+        "X-API-KEY": AGENT_ZERO_API_KEY
+    }
+    
+    payload = {
+        "message": message,
+        "lifetime_hours": lifetime_hours
+    }
+    
+    if context_id:
+        payload["context_id"] = context_id
+    
+    if project:
+        payload["project"] = project
+    
+    if attachments:
+        payload["attachments"] = attachments
+    
+    try:
+        response = requests.post(
+            AGENT_ZERO_URL,
+            headers=headers,
+            json=payload,
+            timeout=60
+        )
+        
+        if response.ok:
+            return {
+                "success": True,
+                "response": response.json().get("response", ""),
+                "context_id": response.json().get("context_id")
+            }
+        else:
+            error_data = response.json() if response.content else {}
+            return {
+                "success": False,
+                "error": error_data.get("error", f"HTTP {response.status_code}")
+            }
+            
+    except requests.exceptions.ConnectionError:
+        return {
+            "success": False,
+            "error": "Gagal terhubung ke Agent Zero. Pastikan server berjalan."
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
 
 
 def reformat_phone(text: str) -> str:
@@ -505,132 +587,167 @@ async def set_bot_name(user_number: str, bot_name: str) -> Union[dict, dict, Non
     return {"message": "done"}
 
 
+KOS_KEYWORDS = ["kos", "azana", "kamar", "kost", " sewa ", "penginapan", "hostel", "inn"]
+
 @app.post("/messages")
-async def receive_message(message: Message) -> dict[str, str] | str:
-    """Fungsi terpenting menerima pesan dari WA web"""
-    if message.user_number not in conversations:
-        add_conversation(user_number=message.user_number, bot_number=message.bot_number)
+async def receive_message(request: Request):
+    """Endpoint menerima pesan dari WhatsApp (index.js)"""
+    try:
+        data = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON")
 
-    if message.type == "chat":
-        # response_text = f"You received a message from {message.user_number}: {message.text}"
-        if message.user_number not in conversations:
-            conversations.update(
-                {
-                    message.user_number: Conversation(
-                        message.user_number, message.bot_number
-                    )
-                }
-            )
+    text = data.get("text", "")
+    user_number = data.get("user_number", "")
 
-        # pass conversation object to process
-        conversation_obj = conversations[message.user_number]
-        if message.notifyName:
-            conversation_obj.user_name = message.notifyName
+    if user_number.endswith("@g.us") or user_number.endswith("@broadcast") or user_number.endswith("@newsletter"):
+        return
 
-        try:
-            # response_text = process_msg(conversation_obj, message.text)
-            response_text = await msgprocess.process(conversation_obj, message=message)
-            if response_text == None:
-                return {"data": "none"}
-        except Exception as err:
-            print(
-                f"{Fore.RED}{Back.WHITE}>>>>>>>>>>>>>>>> ERROR : "
-                + f"{str(err)} <<<<<<<<<<<<<<<<<<<<<{Fore.WHITE}{Back.BLACK}"
-            )
-            result = await notify_admin(
-                f"Ada error {str(err)} nih! dari {message.user_number}"
-            )  # type: ignore
-            conversation_obj.anti_flood = []
-            return {"message": return_brb()}
+    bot_number = data.get("bot_number", "")
+    timestamp = data.get("timestamp", 0)
+    notifyName = data.get("notifyName", "")
+    msg_type = data.get("type", "chat")
+    client = data.get("client", "whatsapp")
+    author = data.get("author", "")
+    hasMedia = data.get("hasMedia", False)
+    message_dict = data.get("message", {})
 
-        update_db_connection(
-            user_number=message.user_number,
-            bot_number=message.bot_number,
-            result=conversation_obj.get_params(),
-            db_name="cipibot.db",
+    if not user_number or not text:
+        return
+
+    is_new_user = user_number not in conversations
+    text_lower = text.lower()
+    has_kos_keyword = any(kw in text_lower for kw in KOS_KEYWORDS)
+
+    if is_new_user and not has_kos_keyword:
+        print(f"📪 New user tanpa KOS keyword - ignored")
+        return
+
+    if is_new_user:
+        add_conversation(user_number=user_number, bot_number=bot_number)
+
+    print(f"📥 Received: user={user_number}, text={text[:50]}...")
+
+    conversation_obj = conversations[user_number]
+    if notifyName:
+        conversation_obj.user_name = notifyName
+
+    if is_new_user and has_kos_keyword:
+        print(f"🎯 New user dengan keyword kos - set persona ke KOS_CS")
+        pf.set_persona(Persona.KOS_CS, conversation_obj)
+        cf.add_system(conversation_obj, cfg['KOS_CS']['M_S'])
+        cf.add_role_user(conversation_obj, cfg['KOS_CS']['M_U'])
+        cf.add_role_assistant(conversation_obj, cfg['KOS_CS']['M_A'])
+
+    msg_obj = Message(
+        text=text,
+        user_number=user_number,
+        bot_number=bot_number,
+        timestamp=timestamp,
+        notifyName=notifyName,
+        type=msg_type,
+        client=client,
+        author=author,
+        hasMedia=hasMedia,
+        message=message_dict
+    )
+
+    try:
+        response_text = await msgprocess.process(conversation_obj, message=msg_obj)
+        if response_text is None:
+            return {"message": "none"}
+    except Exception as err:
+        print(
+            f"{Fore.RED}{Back.WHITE}>>>>>>>>>>>>>>>> ERROR : "
+            + f"{str(err)} <<<<<<<<<<<<<<<<<<<<<{Fore.WHITE}{Back.BLACK}"
         )
-        # logging.debug("Returned response: " + str(response_text))
-        return {"message": str(response_text)}
-    else:
-        logging.error("Not Chat Type")
-        return return_brb()
+        try:
+            await notify_admin(f"Ada error {str(err)} nih! dari {user_number}")
+        except:
+            pass
+        conversation_obj.anti_flood = []
+        return {"message": return_brb()}
+
+    update_db_connection(
+        user_number=user_number,
+        bot_number=bot_number,
+        result=conversation_obj.get_params(),
+        db_name=DB_PATH,
+    )
+
+    return {"message": str(response_text)}
 
 
 @app.post("/special_messages")
-async def receive_special_message(message: Message) -> dict[str, str] | str:
-    """Fungsi terpenting menerima pesan dari WA web"""
-    if message.user_number not in conversations:
-        add_conversation(user_number=message.user_number, bot_number=message.bot_number)
+async def receive_special_message(request: Request):
+    """Endpoint menerima pesan dari WhatsApp (variant of /messages)"""
+    try:
+        data = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON")
 
-    if message.type == "chat":
-        # response_text = f"You received a message from {message.user_number}: {message.text}"
-        if message.user_number not in conversations:
-            conversations.update(
-                {
-                    message.user_number: Conversation(
-                        message.user_number, message.bot_number
-                    )
-                }
-            )
+    text = data.get("text", "")
+    user_number = data.get("user_number", "")
 
-        # ignore kalau ada konfirmasi atau ada error
-        if message.text.lower().__contains__(
-            "konfirmasi"
-        ) or message.text.lower().__contains__("ada error"):
-            print("MSG IGNORED-KONFIRMASI")
-            return {"data": "none"}
+    if user_number.endswith("@broadcast") or user_number.endswith("@newsletter"):
+        return
 
-        # ignore kalau ada info_cs atau ada error
-        if message.text.lower().__contains__(
-            "info_cs"
-        ) or message.text.lower().__contains__("ada error"):
-            print("MSG IGNORED-INFO_CS")
-            return {"data": "none"}
+    bot_number = data.get("bot_number", "")
+    timestamp = data.get("timestamp", 0)
+    notifyName = data.get("notifyName", "")
+    msg_type = data.get("type", "chat")
+    client = data.get("client", "whatsapp")
+    author = data.get("author", "")
+    hasMedia = data.get("hasMedia", False)
+    message_dict = data.get("message", {})
 
-        if (
-            message.bot_number == cfg["CONFIG"]["BOT_NUMBER"]
-            and message.user_number in cfg["CONFIG"]["ADMIN_NUMBER"]
-        ):
-            print("MSG IGNORED-ADMIN TO ADMIN")
-            return {"data": "none"}
+    if not user_number or not text:
+        return
 
-        # pass conversation object to process
-        conversation_obj = conversations[message.user_number]
-        if message.notifyName:
-            conversation_obj.user_name = message.notifyName
+    if user_number not in conversations:
+        add_conversation(user_number=user_number, bot_number=bot_number)
 
-        try:
-            # response_text = process_msg(conversation_obj, message.text)
-            response_text = await msgprocess.chan1_process(
-                conversation_obj, message=message
-            )
-            if response_text == None:
-                return {"data": "none"}
-        except Exception as err:
-            print(
-                f"{Fore.RED}{Back.WHITE}>>>>>>>>>>>>>>>> ERROR : "
-                + f"{str(err)} <<<<<<<<<<<<<<<<<<<<<{Fore.WHITE}{Back.BLACK}"
-            )
-            result = await notify_admin(
-                f"Ada error {str(err)} nih! dari {message.user_number}"
-            )  # type: ignore
-            conversation_obj.anti_flood = []
-            return {"message": return_brb()}
+    conversation_obj = conversations[user_number]
+    if notifyName:
+        conversation_obj.user_name = notifyName
 
-        update_db_connection(
-            user_number=message.user_number,
-            bot_number=message.bot_number,
-            result=conversation_obj.get_params(),
-            db_name="cipibot.db",
+    msg_obj = Message(
+        text=text,
+        user_number=user_number,
+        bot_number=bot_number,
+        timestamp=timestamp,
+        notifyName=notifyName,
+        type=msg_type,
+        client=client,
+        author=author,
+        hasMedia=hasMedia,
+        message=message_dict
+    )
+
+    try:
+        response_text = await msgprocess.chan1_process(conversation_obj, message=msg_obj)
+        if response_text is None:
+            return {"message": ""}
+    except Exception as err:
+        print(
+            f"{Fore.RED}{Back.WHITE}>>>>>>>>>>>>>>>> ERROR : "
+            + f"{str(err)} <<<<<<<<<<<<<<<<<<<<<{Fore.WHITE}{Back.BLACK}"
         )
-        # logging.debug("Returned response: " + str(response_text))
-        # return {"message": str(response_text)}
-        # kita ignore semua pesan dulu.
-        return {"data": "none"}
+        try:
+            await notify_admin(f"Ada error {str(err)} nih! dari {user_number}")
+        except:
+            pass
+        conversation_obj.anti_flood = []
+        return {"message": return_brb()}
 
-    else:
-        logging.error("Not Chat Type")
-        return return_brb()
+    update_db_connection(
+        user_number=user_number,
+        bot_number=bot_number,
+        result=conversation_obj.get_params(),
+        db_name=DB_PATH,
+    )
+
+    return {"message": str(response_text)}
 
 
 @app.get("/print_messages/{user_number}")
@@ -905,6 +1022,81 @@ async def test_media(user_number: str, message: Optional[Message] = None) -> dic
         return {"message": text + " (no media files found)"}
 
 
+@app.post("/agentzero")
+async def agentzero_endpoint(request: Request) -> dict:
+    """
+    Relay endpoint - WhatsApp -> Server -> Agent Zero -> Server -> WhatsApp
+    
+    Request body:
+    {
+        "text": "Halo, ada yang bisa dibantu?",
+        "user_number": "6285775300227@c.us",
+        "bot_number": "6281234567890@c.us",
+        "timestamp": 1700000000,
+        "context_id": "ctx_abc123",  (optional)
+        "project": "my-project",       (optional)
+        "lifetime_hours": 24          (optional)
+    }
+    
+    Response format (compatible with handleWaResponse in index.js):
+    {
+        "message": "{\"text\": \"Response text\", \"attachments\": [...]}"
+    }
+    """
+    try:
+        data = await request.json()
+    except Exception as e:
+        print(f"❌ Invalid JSON: {e}")
+        raise HTTPException(status_code=400, detail="Invalid JSON body")
+    
+    user_number = data.get("user_number")
+    bot_number = data.get("bot_number")
+    message_text = data.get("text") or data.get("message")
+    context_id = data.get("context_id")
+    project = data.get("project")
+    lifetime_hours = data.get("lifetime_hours", 24)
+    
+    print(f"📥 Received: user={user_number}, text={str(message_text)[:50]}...")
+    
+    if not user_number or not bot_number or not message_text:
+        print(f"❌ Missing fields: user={user_number}, bot={bot_number}, text={message_text}")
+        raise HTTPException(
+            status_code=400,
+            detail="Missing required fields: user_number, bot_number, text/message"
+        )
+    
+    print(f"📤 Mengirim ke Agent Zero: user={user_number}, message={str(message_text)[:50]}...")
+    
+    result = send_to_agent_zero(
+        message=message_text,
+        context_id=context_id,
+        lifetime_hours=lifetime_hours,
+        project=project
+    )
+    
+    if result["success"]:
+        response_text = result["response"]
+        new_context_id = result.get("context_id")
+        
+        print(f"✅ Respons dari Agent Zero: {str(response_text)[:100]}...")
+        
+        wa_response = {
+            "text": response_text,
+            "context_id": new_context_id
+        }
+        
+        return {"message": json.dumps(wa_response)}
+    else:
+        error_message = f"Error Agent Zero: {result['error']}"
+        print(f"❌ {error_message}")
+        
+        wa_response = {
+            "text": error_message
+        }
+        
+        return {"message": json.dumps(wa_response)}
+
+
 @app.get("/ping")
 async def ping() -> dict[str, str]:
     return {"message": "pong"}
@@ -963,7 +1155,7 @@ async def rebuild_connection_db():
             conversations[i].user_number,
             conversations[i].bot_number,
             conversations[i].get_params(),
-            "cipibot.db",
+            DB_PATH,
         )
     return {"message": "update completed"}
 
