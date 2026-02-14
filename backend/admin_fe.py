@@ -2,7 +2,7 @@
 import gradio as gr
 
 from backend import cipi_iface as cp
-from backend.conversations import Persona, Script, ConvMode, ConvType, Role
+from backend.conversations import Persona, ConvMode, ConvType, Role
 import json
 import requests
 import toml
@@ -77,7 +77,6 @@ def main():
     all_conv = []
     persona = [e.name for e in Persona]
     convmode = [e.name for e in ConvMode]
-    script = [e.name for e in Script]
     convtype = [e.name for e in ConvType]
     say_this_c = [m for m in cfg['SAY']['SAY_MSG']]
 
@@ -108,12 +107,6 @@ def main():
 
     def set_convtype_(user_number: str, convtype: ConvType):
         cp.set_convtype(clean_(user_number), convtype=convtype)
-
-    def tambah_paid_messages_(user_number: str, unit: int):
-        cp.tambah_paid_messages(clean_(user_number), unit)
-
-    def toggle_free_gpt_(user_number: str):
-        cp.toggle_free_gpt(clean_(user_number))
 
     def _conversation_info(user_number: str) -> list:
         un = user_number.split('###')[0].strip()
@@ -189,11 +182,8 @@ def main():
             convmode = gr.Dropdown(choices=convmode, label="Mode", interactive=True, allow_custom_value=True)
             st_convmode = gr.Button(value="Set")
             st_convmode.style(size='sm', full_width=False)
-        with gr.Row():
-            script = gr.Dropdown(choices=script, label="Script")
-            st_script = gr.Button(value="Set")
-            st_script.style(size='sm', full_width=False)
 
+        with gr.Row():
             interval = gr.Textbox(label="Timed Interval", interactive=True)
             set_interval = gr.Button(value="Set Interval")
             set_interval.style(size='sm', full_width=False)
@@ -202,10 +192,6 @@ def main():
             convtype = gr.Dropdown(choices=convtype, label="Conv Type")
             st_convtype = gr.Button(value="Set conv Type")
             st_convtype.style(size='sm', full_width=False)
-
-            unit = gr.Textbox(label="unit", interactive=True)
-            st_paid_messages = gr.Button(value="Set Paid")
-            st_paid_messages.style(size='sm', full_width=False)
             
         with gr.Column():
             intro_msg = gr.Textbox(label="Intro Message", interactive=True)
@@ -225,8 +211,6 @@ def main():
             temperature = gr.Textbox(label="Temp", interactive=True)
             temp_btn = gr.Button(value="Set Temp", interactive=True)
             temp_btn.style(size='sm', full_width=False)
-            toggle_free_gpt = gr.Button(value="Toggle Free GPT", interactive=True)
-            toggle_free_gpt.style(size='sm', full_width=False)
 
         #definisi klik
         refresh_contact.click(fn=get_conv_, inputs=user_filter, outputs=contacts)
@@ -234,14 +218,11 @@ def main():
         reset_ch.click(fn=reset_channel_, inputs=contacts)
         retrieve_data.click(fn=_conversation_info, inputs=contacts, outputs=[json_msg, sys_msg, user_msg,assistant_msg, interval, persona, convmode, intro_msg, outro_msg, bot_name, user_name])
         st_convtype.click(fn=set_convtype_ , inputs=[contacts, convtype])
-        st_paid_messages.click(fn=tambah_paid_messages_, inputs=[contacts,unit])
         st_persona.click(fn=set_persona_, inputs=[contacts, persona])
         st_convmode.click(fn=set_convmode_, inputs=[contacts, convmode])
-        st_script.click(fn=set_script_, inputs=[contacts, script])
         sys_set.click(fn=set_system_, inputs=[contacts, sys_msg])
         user_set.click(fn=set_user_, inputs=[contacts, user_msg])
         assistant_set.click(fn=set_assistant_, inputs=[contacts, assistant_msg])
-        toggle_free_gpt.click(fn=toggle_free_gpt_, inputs=[contacts])
         say_btn.click(fn=stp, inputs=[contacts, say_this])
 
     result = admin.launch(server_name = "0.0.0.0", server_port=9666, share=True,)

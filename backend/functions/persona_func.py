@@ -7,10 +7,10 @@ cfg = toml.load('config.toml')
 def set_persona(persona: Persona, conv_obj: Conversation) -> None:
     cf.reset_system(conv_obj)
     set_bot_name(conv_obj.bot_name, conv_obj)
-    conv_obj.persona = persona.value
+    conv_obj.persona = persona  # Store enum, not persona.value
     cf.add_system(conv_obj, cfg[persona.name]['M_S'])
     cf.add_role_user(conv_obj, cfg[persona.name]['M_U'])
-    cf.add_role_assistant(conv_obj, cfg[persona.name]['M_A'])  
+    cf.add_role_assistant(conv_obj, cfg[persona.name]['M_A'])
 
 
 def set_intro_msg(intro_msg: str, conv_obj: Conversation) -> None:

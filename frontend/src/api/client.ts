@@ -106,17 +106,6 @@ export const adminApi = {
   },
 
   // Usage limits
-  addFreeTries(userNumber: string, unit: number): Promise<{ data: { message: string } }> {
-    return apiClient.put(`/tambah_free_tries/${userNumber}/${unit}`)
-  },
-
-  addPaidMessages(userNumber: string, unit: number): Promise<{ data: { message: string } }> {
-    return apiClient.put(`/tambah_paid_messages/${userNumber}/${unit}`)
-  },
-
-  toggleFreeGpt(userNumber: string): Promise<{ data: { message: string } }> {
-    return apiClient.put(`/toggle_free_gpt/${userNumber}`)
-  },
 
   resetChannel(userNumber: string): Promise<{ data: { message: string } }> {
     return apiClient.get(`/reset_channel/${userNumber}`)

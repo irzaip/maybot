@@ -30,304 +30,142 @@
         <input v-model="searchQuery" placeholder="Search by name, number, persona..." @input="filterConversations" class="search-input" />
       </div>
       
-      <div v-if="loading" class="loading">Loading...</div>
-      <div v-else-if="filteredConversations.length === 0" class="empty">No conversations found</div>
-      <div v-else class="conversation-list">
-        <div 
-          v-for="conv in filteredConversations" 
-          :key="conv.user_number"
-          class="conversation-item"
-          :class="{ active: selectedConversation?.user_number === conv.user_number }"
-          @click="selectConversation(conv)"
-        >
-          <div class="conv-main">
-            <div class="conv-info">
-              <strong>{{ conv.user_name || 'Unknown' }}</strong>
+      <!-- Two Column Layout -->
+      <div class="two-column-layout">
+        <!-- Left Column: Conversation List -->
+        <div class="conversation-list-panel">
+          <div v-if="loading" class="loading">Loading...</div>
+          <div v-else-if="filteredConversations.length === 0" class="empty">No conversations found</div>
+          <div v-else class="conversation-list compact">
+            <div 
+              v-for="conv in filteredConversations" 
+              :key="conv.user_number"
+              class="conversation-item compact"
+              :class="{ active: selectedConversation?.user_number === conv.user_number }"
+              @click="selectConversation(conv)"
+            >
+              <span class="conv-name">{{ conv.user_name || 'Unknown' }}</span>
               <span class="conv-number">{{ conv.user_number }}</span>
-            </div>
-            <div class="conv-badges">
-              <span class="badge-full persona">{{ getPersonaLabel(conv.persona) }}</span>
-              <span class="badge-full mode">{{ getConvModeLabel(conv.convmode) }}</span>
-              <span class="badge-full type">{{ getConvTypeLabel(conv.convtype) }}</span>
+              <span class="badge-sm persona">{{ getPersonaLabel(conv.persona) }}</span>
+              <span class="badge-sm mode">{{ getConvModeLabel(conv.convmode) }}</span>
+              <span class="badge-sm type">{{ getConvTypeLabel(conv.convtype) }}</span>
             </div>
           </div>
-          <div class="conv-stats">
-            <span>Free: {{ conv.free_tries }}</span>
-            <span>Paid: {{ conv.paid_messages }}</span>
-            <span>Messages: {{ conv.message_count }}</span>
-          </div>
         </div>
-      </div>
-    </div>
-    
-    <!-- Selected Conversation Details -->
-    <div v-if="selectedConversation" class="details-section">
-      <div class="details-header">
-        <h2>Conversation Details - {{ selectedConversation.user_name || 'Unknown' }}</h2>
-        <button @click="selectedConversation = null" class="close-btn">Close</button>
-      </div>
-      
-      <!-- Basic Information -->
-      <div class="detail-group">
-        <h3>Basic Information</h3>
-        <div class="detail-grid">
-          <div class="detail-item-full">
-            <label>User Number:</label>
-            <span class="full-text">{{ selectedConversation.user_number }}</span>
+        
+        <!-- Right Column: Conversation Details -->
+        <div class="details-panel">
+          <div v-if="!selectedConversation" class="no-selection">
+            <p>Select a conversation to view details</p>
           </div>
-          <div class="detail-item-full">
-            <label>User Name:</label>
-            <span class="full-text">{{ selectedConversation.user_name || 'Not set' }}</span>
-          </div>
-          <div class="detail-item-full">
-            <label>Bot Name:</label>
-            <span class="full-text">{{ selectedConversation.bot_name || 'Maya' }}</span>
-          </div>
-        </div>
-      </div>
-      
-      <!-- Conversation Settings -->
-      <div class="detail-group">
-        <h3>Conversation Settings</h3>
-        <div class="detail-grid">
-          <div class="detail-item-full">
-            <label>Persona:</label>
-            <span class="badge-large persona">{{ getPersonaLabel(selectedConversation.persona) }}</span>
-          </div>
-          <div class="detail-item-full">
-            <label>Conversation Mode:</label>
-            <span class="badge-large mode">{{ getConvModeLabel(selectedConversation.convmode) }}</span>
-          </div>
-          <div class="detail-item-full">
-            <label>Conversation Type:</label>
-            <span class="badge-large type">{{ getConvTypeLabel(selectedConversation.convtype) }}</span>
-          </div>
-          <div class="detail-item-full">
-            <label>Script:</label>
-            <span class="full-text">{{ getScriptLabel(selectedConversation.script) }}</span>
-          </div>
-          <div class="detail-item-full">
-            <label>Interval:</label>
-            <span class="full-text">{{ selectedConversation.interval || 600 }} seconds</span>
-          </div>
-          <div class="detail-item-full">
-            <label>Temperature:</label>
-            <span class="full-text">{{ selectedConversation.temperature || 0.7 }}</span>
-          </div>
-        </div>
-      </div>
-      
-      <!-- Usage Limits -->
-      <div class="detail-group">
-        <h3>Usage Limits</h3>
-        <div class="detail-grid">
-          <div class="detail-item-full">
-            <label>Free Tries:</label>
-            <span class="full-text">{{ selectedConversation.free_tries }}</span>
-          </div>
-          <div class="detail-item-full">
-            <label>Paid Messages:</label>
-            <span class="full-text">{{ selectedConversation.paid_messages }}</span>
-          </div>
-          <div class="detail-item-full">
-            <label>Message Count:</label>
-            <span class="full-text">{{ selectedConversation.message_count }}</span>
-          </div>
-          <div class="detail-item-full">
-            <label>Free GPT Access:</label>
-            <span class="full-text">{{ selectedConversation.free_gpt ? 'Yes' : 'No' }}</span>
-          </div>
-          <div class="detail-item-full">
-            <label>Demo User:</label>
-            <span class="full-text">{{ selectedConversation.demo_user ? 'Yes' : 'No' }}</span>
-          </div>
-          <div class="detail-item-full">
-            <label>GPT Accessed Count:</label>
-            <span class="full-text">{{ selectedConversation.gpt_accessed || 0 }}</span>
-          </div>
-          <div class="detail-item-full">
-            <label>GPT Tokens Used:</label>
-            <span class="full-text">{{ selectedConversation.gpt_token_used || 0 }}</span>
-          </div>
-          <div class="detail-item-full">
-            <label>Daily Free GPT:</label>
-            <span class="full-text">{{ selectedConversation.daily_free_gpt || 5 }}</span>
-          </div>
-        </div>
-      </div>
-      
-      <!-- Additional Settings -->
-      <div class="detail-group">
-        <h3>Additional Settings</h3>
-        <div class="detail-grid">
-          <div class="detail-item-full">
-            <label>Profanity Filter:</label>
-            <span class="full-text">{{ selectedConversation.profanity ? 'Enabled' : 'Disabled' }}</span>
-          </div>
-          <div class="detail-item-full">
-            <label>Profanity Counter:</label>
-            <span class="full-text">{{ selectedConversation.profanity_counter || 7 }}</span>
-          </div>
-          <div class="detail-item-full">
-            <label>Funny Counter:</label>
-            <span class="full-text">{{ selectedConversation.funny_counter || 4 }}</span>
-          </div>
-          <div class="detail-item-full">
-            <label>Promo Counter:</label>
-            <span class="full-text">{{ selectedConversation.promo_counter || 7 }}</span>
-          </div>
-          <div class="detail-item-full">
-            <label>Group Title:</label>
-            <span class="full-text">{{ selectedConversation.group_title || 'Not set' }}</span>
-          </div>
-          <div class="detail-item-full">
-            <label>Question Asked:</label>
-            <span class="full-text">{{ selectedConversation.question_asked || 'None' }}</span>
-          </div>
-        </div>
-      </div>
-      
-      <!-- Intro/Outro Messages -->
-      <div class="detail-group">
-        <h3>Interview Messages</h3>
-        <div class="detail-grid">
-          <div class="detail-item-full">
-            <label>Intro Message:</label>
-            <span class="full-text">{{ selectedConversation.intro_msg || 'Not set' }}</span>
-          </div>
-          <div class="detail-item-full">
-            <label>Outro Message:</label>
-            <span class="full-text">{{ selectedConversation.outro_msg || 'Not set' }}</span>
-          </div>
-        </div>
-      </div>
-      
-      <!-- Message Content from Memory -->
-      <div class="detail-group">
-        <h3>Conversation Messages - Memory ({{ conversationMessages.length }})</h3>
-        <div v-if="conversationMessages.length === 0" class="empty">No messages</div>
-        <div v-else class="messages-container">
-          <div
-            v-for="(msg, index) in conversationMessages"
-            :key="index"
-            class="message-item"
-            :class="getRoleClass(msg.role)"
-          >
-            <div class="message-header">
-              <span class="message-role">{{ getRoleLabel(msg.role) }}</span>
-              <span class="message-time">{{ formatTime(msg.timestamp) }}</span>
+          <div v-else class="details-section">
+            <div class="details-header">
+              <h3>{{ selectedConversation.user_name || 'Unknown' }}</h3>
+              <button @click="selectedConversation = null" class="close-btn-sm">×</button>
             </div>
-            <div class="message-content">{{ msg.content }}</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- SQL Conversation Table -->
-      <div class="detail-group sql-messages">
-        <h3>SQL Conversation Table ({{ sqlMessages.length }}{{ sqlTotal > sqlMessages.length ? ' of ' + sqlTotal : '' }})</h3>
-
-        <div class="sql-controls">
-          <div class="sql-search">
-            <input v-model="sqlSearch" placeholder="Filter by user number..." @input="fetchSqlConversations" class="search-input" />
-          </div>
-          <div class="sql-pagination">
-            <button @click="sqlOffset = 0; fetchSqlConversations()" :disabled="sqlOffset === 0" class="page-btn">First</button>
-            <button @click="sqlOffset = Math.max(0, sqlOffset - sqlLimit); fetchSqlConversations()" :disabled="sqlOffset === 0" class="page-btn">Prev</button>
-            <span class="page-info">{{ sqlOffset + 1 }}-{{ Math.min(sqlOffset + sqlLimit, sqlTotal) }} of {{ sqlTotal }}</span>
-            <button @click="sqlOffset += sqlLimit; fetchSqlConversations()" :disabled="sqlOffset + sqlLimit >= sqlTotal" class="page-btn">Next</button>
-            <button @click="sqlOffset = Math.floor((sqlTotal - 1) / sqlLimit) * sqlLimit; fetchSqlConversations()" :disabled="sqlOffset + sqlLimit >= sqlTotal" class="page-btn">Last</button>
-          </div>
-          <div class="sql-limit">
-            <label>Limit:</label>
-            <select v-model="sqlLimit" @change="fetchSqlConversations">
-              <option :value="50">50</option>
-              <option :value="100">100</option>
-              <option :value="200">200</option>
-              <option :value="500">500</option>
-            </select>
-          </div>
-        </div>
-
-        <div v-if="sqlLoading" class="loading">Loading SQL messages...</div>
-        <div v-else-if="sqlMessages.length === 0" class="empty">No SQL messages found</div>
-        <div v-else class="sql-messages-container">
-          <div
-            v-for="msg in sqlMessages"
-            :key="msg.id"
-            class="sql-message-item"
-          >
-            <div class="sql-message-header">
-              <span class="sql-id">ID: {{ msg.id }}</span>
-              <span class="sql-user">{{ msg.user_number }}</span>
-              <span class="sql-time">{{ formatTime(msg.timestamp) }}</span>
+            
+            <div class="detail-group">
+              <div class="detail-grid">
+                <div class="detail-item-full">
+                  <label>Number:</label>
+                  <span class="full-text">{{ selectedConversation.user_number }}</span>
+                </div>
+                <div class="detail-item-full">
+                  <label>Bot Name:</label>
+                  <span>{{ selectedConversation.bot_name || 'Maya' }}</span>
+                </div>
+                <div class="detail-item-full">
+                  <label>Persona:</label>
+                  <span class="badge-large persona">{{ getPersonaLabel(selectedConversation.persona) }}</span>
+                </div>
+                <div class="detail-item-full">
+                  <label>Mode:</label>
+                  <span class="badge-large mode">{{ getConvModeLabel(selectedConversation.convmode) }}</span>
+                </div>
+                <div class="detail-item-full">
+                  <label>Type:</label>
+                  <span class="badge-large type">{{ getConvTypeLabel(selectedConversation.convtype) }}</span>
+                </div>
+                <div class="detail-item-full">
+                  <label>Interval:</label>
+                  <span>{{ selectedConversation.interval || 600 }}s</span>
+                </div>
+                <div class="detail-item-full">
+                  <label>Temp:</label>
+                  <span>{{ selectedConversation.temperature || 0.7 }}</span>
+                </div>
+              </div>
             </div>
-            <div class="sql-message-content">{{ msg.content }}</div>
-          </div>
-        </div>
-      </div>
-      
-      <!-- Bot Questions -->
-      <div v-if="botQuestions.length > 0" class="detail-group">
-        <h3>Bot Questions ({{ botQuestions.length }})</h3>
-        <div class="questions-container">
-          <div 
-            v-for="(q, index) in botQuestions" 
-            :key="index"
-            class="question-item"
-          >
-            <div class="question-header">
-              <span class="question-id">Q{{ index + 1 }}</span>
-              <span class="question-score" v-if="q.score">Score: {{ q.score }}</span>
+            
+            <!-- Action Buttons -->
+            <div class="detail-actions">
+              <button @click="testSend" class="action-btn primary">Test Send</button>
+              <button @click="resetChannel" class="action-btn warning">Reset</button>
+              <button @click="callMethod" class="action-btn info">Run Task</button>
             </div>
-            <div class="question-text"><strong>Question:</strong> {{ q.question }}</div>
-            <div class="answer-text" v-if="q.answer"><strong>Answer:</strong> {{ q.answer }}</div>
+            
+            <!-- Change Settings -->
+            <div class="change-settings">
+              <h4>Change Settings</h4>
+              <div class="settings-grid">
+                <div class="setting-item">
+                  <label>Persona:</label>
+                  <select v-model="newPersona">
+                    <option v-for="p in personas" :key="p" :value="p">{{ p }}</option>
+                  </select>
+                </div>
+                <div class="setting-item">
+                  <label>Mode:</label>
+                  <select v-model="newMode">
+                    <option v-for="m in modes" :key="m" :value="m">{{ m }}</option>
+                  </select>
+                </div>
+                <div class="setting-item">
+                  <label>Type:</label>
+                  <select v-model="newConvType">
+                    <option v-for="t in convTypes" :key="t" :value="t">{{ t }}</option>
+                  </select>
+                </div>
+              </div>
+              <div style="margin-top:12px; display: flex; gap: 8px;">
+                <button @click="updatePersona" class="action-btn success">Update Persona</button>
+                <button @click="updateMode" class="action-btn info">Update Mode</button>
+                <button @click="updateConvType" class="action-btn warning">Update Type</button>
+              </div>
+            </div>
+            
+            <!-- Direct Message -->
+            <div class="direct-message">
+              <h4>Send Message</h4>
+              <textarea v-model="directMessage" placeholder="Type message..." class="message-input" rows="3"></textarea>
+              <button @click="sendDirectMessage" class="action-btn primary">Send</button>
+            </div>
+            
+            <!-- SQL Messages Section -->
+            <div class="sql-messages">
+              <h3>SQL Messages</h3>
+              <div class="sql-controls">
+                <div class="sql-search">
+                  <input v-model="sqlSearch" placeholder="Search..." @input="fetchSqlConversations" />
+                </div>
+                <button @click="fetchSqlConversations" class="control-btn refresh" style="padding:8px 12px">Refresh</button>
+              </div>
+              <div v-if="sqlLoading" class="loading">Loading SQL messages...</div>
+              <div v-else class="sql-messages-container">
+                <div v-for="msg in sqlMessages" :key="msg.id" class="sql-message-item" :class="msg.direction">
+                  <div class="sql-message-header">
+                    <span class="sql-id">#{{ msg.id }}</span>
+                    <span class="sql-dir" :class="msg.direction">{{ msg.direction === 'incoming' ? '⬇️ IN' : '⬆️ OUT' }}</span>
+                    <span class="sql-user">{{ msg.user_number }}</span>
+                    <span class="sql-time">{{ formatTime(msg.timestamp) }}</span>
+                  </div>
+                  <div class="sql-message-content">{{ msg.content }}</div>
+                </div>
+                <div v-if="sqlMessages.length === 0" class="empty">No messages found</div>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-      
-      <!-- Action Buttons -->
-      <div class="detail-actions">
-        <button @click="testSend" class="action-btn primary">Test Send Message</button>
-        <button @click="resetChannel" class="action-btn warning">Reset Channel</button>
-        <button @click="callMethod" class="action-btn info">Call Background Task</button>
-        <button @click="saveLogs" class="action-btn save">Save Logs</button>
-      </div>
-      
-      <!-- Change Settings -->
-      <div class="change-settings">
-        <h3>Change Settings</h3>
-        <div class="settings-grid">
-          <div class="setting-item">
-            <label>Set Persona:</label>
-            <select v-model="newPersona" @change="updatePersona">
-              <option value="">Choose persona...</option>
-              <option v-for="p in personaOptions" :key="p.value" :value="p.value">{{ p.label }}</option>
-            </select>
-          </div>
-          <div class="setting-item">
-            <label>Set Mode:</label>
-            <select v-model="newMode" @change="updateMode">
-              <option value="">Choose mode...</option>
-              <option v-for="m in convModeOptions" :key="m.value" :value="m.value">{{ m.label }}</option>
-            </select>
-          </div>
-          <div class="setting-item">
-            <label>Set Type:</label>
-            <select v-model="newConvType" @change="updateConvType">
-              <option value="">Choose type...</option>
-              <option v-for="t in convTypeOptions" :key="t.value" :value="t.value">{{ t.label }}</option>
-            </select>
-          </div>
-        </div>
-      </div>
-      
-      <!-- Direct Message -->
-      <div class="direct-message">
-        <h3>Send Direct Message</h3>
-        <textarea v-model="directMessage" placeholder="Type your message here..." rows="4" class="message-input"></textarea>
-        <button @click="sendDirectMessage" class="action-btn success" :disabled="!directMessage.trim()">
-          Send Message
-        </button>
       </div>
     </div>
   </div>
@@ -356,21 +194,11 @@ interface Conversation {
   persona: string
   convmode: string
   convtype: string
-  script?: string
-  free_tries: number
-  paid_messages: number
-  message_count: number
-  free_gpt?: boolean
   demo_user?: boolean
   interval?: number
   temperature?: number
-  gpt_accessed?: number
-  gpt_token_used?: number
-  daily_free_gpt?: number
   profanity?: boolean
   profanity_counter?: number
-  funny_counter?: number
-  promo_counter?: number
   group_title?: string
   question_asked?: string
   intro_msg?: string
@@ -443,18 +271,6 @@ const convTypeOptions = [
   { value: 'ADMIN', label: 'Admin', description: 'Administrator' }
 ]
 
-// Script options from conversations.py
-const scriptOptions = [
-  { value: 'BRAIN', label: 'Brain', description: 'Brain script' },
-  { value: 'DEPARSE', label: 'Deparse', description: 'Deparse script' },
-  { value: 'JS_OBJECTS', label: 'JS Objects', description: 'JavaScript objects' },
-  { value: 'JSON_SERVER', label: 'JSON Server', description: 'JSON server' },
-  { value: 'PARSER', label: 'Parser', description: 'Parser script' },
-  { value: 'SESSIONS', label: 'Sessions', description: 'Sessions script' },
-  { value: 'NEWCOMER', label: 'Newcomer', description: 'Newcomer script' },
-  { value: 'INTERVIEW', label: 'Interview', description: 'Interview script' }
-]
-
 // Role options from conversations.py
 const roleOptions = [
   { value: 'SYSTEM', label: 'System', description: 'System message' },
@@ -488,11 +304,6 @@ const getConvTypeLabel = (code: string): string => {
   return found ? found.label : (code || 'Demo')
 }
 
-const getScriptLabel = (code: string): string => {
-  const found = scriptOptions.find(s => s.value === code)
-  return found ? found.label : (code || 'Brain')
-}
-
 const getRoleLabel = (code: string): string => {
   const found = roleOptions.find(r => r.value === code)
   return found ? found.label : (code || 'User')
@@ -515,16 +326,22 @@ const formatTime = (timestamp: number): string => {
 
 const fetchSqlConversations = async () => {
   sqlLoading.value = true
+  sqlMessages.value = []
   try {
     let url = `/api/admin/sql/conversations?limit=${sqlLimit.value}&offset=${sqlOffset.value}&admin_key=${encodeURIComponent(adminKey.value)}`
     if (sqlSearch.value.trim()) {
-      url = `/api/admin/sql/conversations/${sqlSearch.value.trim()}?limit=${sqlLimit.value}&offset=${sqlOffset.value}&admin_key=${encodeURIComponent(adminKey.value)}`
+      url = `/api/admin/sql/conversations/${encodeURIComponent(sqlSearch.value.trim())}?limit=${sqlLimit.value}&offset=${sqlOffset.value}&admin_key=${encodeURIComponent(adminKey.value)}`
     }
+    console.log('Fetching SQL:', url)
     const response = await fetch(url)
+    console.log('Response status:', response.status)
     if (response.ok) {
       const data = await response.json()
+      console.log('SQL data:', data)
       sqlMessages.value = data.messages || []
       sqlTotal.value = data.total || data.messages?.length || 0
+    } else {
+      console.error('SQL fetch error:', response.status, await response.text())
     }
   } catch (error) {
     console.error('Failed to fetch SQL conversations:', error)
@@ -591,16 +408,9 @@ const selectConversation = async (conv: Conversation) => {
         selectedConversation.value = {
           ...selectedConversation.value,
           bot_name: result.bot_name || 'Maya',
-          script: result.script || 'BRAIN',
-          free_gpt: result.free_gpt || false,
           demo_user: result.demo_user || true,
-          gpt_accessed: result.gpt_accessed || 0,
-          gpt_token_used: result.gpt_token_used || 0,
-          daily_free_gpt: result.daily_free_gpt || 5,
           profanity: result.profanity || false,
           profanity_counter: result.profanity_counter || 7,
-          funny_counter: result.funny_counter || 4,
-          promo_counter: result.promo_counter || 7,
           group_title: result.group_title || '',
           question_asked: result.question_asked || '',
           intro_msg: result.intro_msg || '',
@@ -651,10 +461,14 @@ const pingServer = async () => {
 const updatePersona = async () => {
   if (!selectedConversation.value || !newPersona.value) return
   try {
-    await fetch(`/set_persona/${selectedConversation.value.user_number}/${newPersona.value}?admin_key=${encodeURIComponent(adminKey.value)}`)
+    const response = await fetch(`/set_persona/${selectedConversation.value.user_number}/${newPersona.value}`, {
+      method: 'PUT'
+    })
+    const result = await response.json()
+    console.log('Update persona result:', result)
     selectedConversation.value.persona = newPersona.value
     await refreshData()
-    alert('Persona updated to: ' + getPersonaLabel(newPersona.value))
+    alert('Persona updated to: ' + newPersona.value)
   } catch (error) {
     console.error('Failed to update persona:', error)
     alert('Failed to update persona')
@@ -664,10 +478,13 @@ const updatePersona = async () => {
 const updateMode = async () => {
   if (!selectedConversation.value || !newMode.value) return
   try {
-    await fetch(`/set_convmode/${selectedConversation.value.user_number}/${newMode.value}?admin_key=${encodeURIComponent(adminKey.value)}`)
+    const response = await fetch(`/set_convmode/${selectedConversation.value.user_number}/${newMode.value}`, {
+      method: 'PUT'
+    })
+    const result = await response.json()
+    console.log('Update mode result:', result)
     selectedConversation.value.convmode = newMode.value
-    await refreshData()
-    alert('Mode updated to: ' + getConvModeLabel(newMode.value))
+    alert('Mode updated to: ' + newMode.value)
   } catch (error) {
     console.error('Failed to update mode:', error)
     alert('Failed to update mode')
@@ -677,10 +494,13 @@ const updateMode = async () => {
 const updateConvType = async () => {
   if (!selectedConversation.value || !newConvType.value) return
   try {
-    await fetch(`/set_convtype/${selectedConversation.value.user_number}/${newConvType.value}?admin_key=${encodeURIComponent(adminKey.value)}`)
+    const response = await fetch(`/set_convtype/${selectedConversation.value.user_number}/${newConvType.value}`, {
+      method: 'PUT'
+    })
+    const result = await response.json()
+    console.log('Update type result:', result)
     selectedConversation.value.convtype = newConvType.value
-    await refreshData()
-    alert('Type updated to: ' + getConvTypeLabel(newConvType.value))
+    alert('Type updated to: ' + newConvType.value)
   } catch (error) {
     console.error('Failed to update type:', error)
     alert('Failed to update type')
@@ -865,7 +685,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .sql-limit select { padding: 8px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; }
 .sql-messages-container { background: white; border-radius: 8px; padding: 16px; max-height: 600px; overflow-y: auto; }
 .sql-message-item { padding: 16px; border-radius: 6px; margin-bottom: 10px; background: #fefce8; border: 1px solid #fef08a; }
+.sql-message-item.incoming { background: #e0f2fe; border-color: #7dd3fc; }
+.sql-message-item.outgoing { background: #dcfce7; border-color: #86efac; }
 .sql-message-item:last-child { margin-bottom: 0; }
+.sql-dir { font-weight: bold; font-size: 12px; padding: 2px 6px; border-radius: 4px; }
+.sql-dir.incoming { background: #0ea5e9; color: white; }
+.sql-dir.outgoing { background: #22c55e; color: white; }
 .sql-message-header { display: flex; gap: 12px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
 .sql-id { font-weight: 600; color: #92400e; font-size: 15px; }
 .sql-user { font-family: monospace; font-size: 16px; color: #059669; }
@@ -893,6 +718,66 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 
 .message-input { width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; font-family: inherit; margin-bottom: 12px; resize: vertical; }
 .message-input:focus { outline: none; border-color: #3b82f6; }
+
+/* Two Column Layout */
+.two-column-layout {
+  display: grid;
+  grid-template-columns: minmax(300px, 1fr) minmax(350px, 1fr);
+  gap: 20px;
+  width: 100%;
+}
+.conversation-list-panel { 
+  max-height: 70vh; 
+  overflow-y: auto; 
+  padding-right: 10px;
+}
+.details-panel { 
+  max-height: 70vh; 
+  overflow-y: auto; 
+}
+
+.conversation-list.compact { display: flex; flex-direction: column; gap: 6px; }
+.conversation-item.compact { 
+  padding: 10px 12px; 
+  border: 1px solid #e5e7eb; 
+  border-radius: 8px; 
+  display: flex; 
+  align-items: center; 
+  gap: 8px; 
+  flex-wrap: wrap;
+  font-size: 12px;
+}
+.conversation-item.compact:hover { border-color: #3b82f6; background: #f8fafc; }
+.conversation-item.compact.active { border-color: #10b981; background: #f0fdf4; }
+
+.conv-name { font-weight: 600; color: #1f2937; min-width: 80px; }
+.conv-number { font-size: 11px; color: #9ca3af; font-family: monospace; }
+.badge-sm { padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; }
+.badge-sm.persona { background: #dbeafe; color: #1e40af; }
+.badge-sm.mode { background: #dcfce7; color: #166534; }
+.badge-sm.type { background: #fef3c7; color: #92400e; }
+
+.no-selection { 
+  display: flex; 
+  align-items: center; 
+  justify-content: center; 
+  height: 200px; 
+  background: #f9fafb; 
+  border: 2px dashed #e5e7eb; 
+  border-radius: 12px;
+  color: #9ca3af;
+}
+
+.details-section { background: white; border-radius: 12px; padding: 20px; border: 1px solid #e5e7eb; }
+.details-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.details-header h3 { margin: 0; font-size: 18px; color: #1f2937; }
+.close-btn-sm { background: #ef4444; color: white; border: none; border-radius: 4px; width: 28px; height: 28px; cursor: pointer; font-size: 18px; line-height: 1; }
+
+@media (max-width: 1024px) {
+  .two-column-layout { grid-template-columns: 1fr; }
+  .conversation-list-panel { max-height: 400px; }
+  .details-panel { max-height: 400px; }
+}
 
 @media (max-width: 768px) {
   .dashboard-header { flex-direction: column; align-items: flex-start; }

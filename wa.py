@@ -1,10 +1,10 @@
 from fastapi import FastAPI, Query, HTTPException, WebSocket, WebSocketDisconnect, Depends, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.gzip import GZipMiddleware
-from backend.conversations import Message, BotQuestion, ConvMode, Script, ConvType
+from backend.conversations import Message, BotQuestion, ConvMode, ConvType
 from backend.conversations import MessageContent, Conversation, Persona
 from backend.Msgproc import MsgProcessor
-import requests, os, random, sys, json
+import requests, os, random, sys, json, sqlite3
 from typing import List, Union, Dict, Any, Optional
 import asyncio
 import nest_asyncio
@@ -18,6 +18,7 @@ from backend.db_oper import (
     get_conversation_messages,
     get_all_conversations_sql,
     get_conversation_count,
+    insert_conv as dbo_insert_conv,
 )
 from backend.utils.media_helpers import make_media_response, encode_relative
 import toml
@@ -54,7 +55,7 @@ from backend.agents import (
 )
 from fastapi.middleware.cors import CORSMiddleware
 
-AGENT_ZERO_URL = "http://localhost:32770/api_message"
+AGENT_ZERO_URL = "http://localhost:32777/api_message"
 AGENT_ZERO_API_KEY = "62D9d6ENLvUImDRH"
 
 
@@ -354,9 +355,7 @@ async def get_admin_conversations(
                 "convtype": convtype_val.split(".")[-1]
                 if "." in convtype_val
                 else convtype_val,
-                "paid_messages": conv_obj.paid_messages,
                 "last_active": getattr(conv_obj, "last_active", None),
-                "message_count": len(conv_obj.messages),
             }
 
             if (
@@ -506,7 +505,17 @@ async def get_sql_conversation_by_user(
     admin_key: str = Depends(verify_admin_key),
 ) -> Dict[str, Any]:
     try:
-        messages = get_conversation_messages(user_number, limit=limit, offset=offset)
+        # Get messages where user_number matches OR bot_number matches (all conversation)
+        conn = sqlite3.connect(cfg['CONFIG']['DB_FILE'])
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT * FROM CONVERSATION WHERE user_number = ? OR bot_number = ? ORDER BY id DESC LIMIT ? OFFSET ?",
+            (user_number, user_number, limit, offset),
+        )
+        rows = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        
         return {
             "messages": [
                 {
@@ -515,8 +524,9 @@ async def get_sql_conversation_by_user(
                     "bot_number": row[2],
                     "timestamp": row[3],
                     "content": row[4],
+                    "direction": "incoming" if row[1] == user_number else "outgoing"
                 }
-                for row in messages
+                for row in rows
             ],
             "user_number": user_number,
             "limit": limit,
@@ -588,7 +598,7 @@ async def set_bot_name(user_number: str, bot_name: str) -> Union[dict, dict, Non
 
 KOS_KEYWORDS = ["kos", "azana", "kamar", "kost", " sewa ", "penginapan", "hostel", "inn"]
 
-async def _handle_message(request: Request, *, kos_routing: bool, group_prefix_required: bool):
+async def _handle_message(request: Request, *, kos_routing: bool, group_prefix_required: bool, bot_config_key: str = "BOT_NUMBER"):
     """Shared handler untuk /messages dan /special_messages"""
     try:
         data = await request.json()
@@ -597,16 +607,34 @@ async def _handle_message(request: Request, *, kos_routing: bool, group_prefix_r
 
     text = data.get("text", "")
     user_number = data.get("user_number", "")
-    bot_number = data.get("bot_number", "")
+    
+    # Get bot_number from config based on endpoint
+    bot_numbers = cfg["CONFIG"].get(bot_config_key, cfg["CONFIG"]["BOT_NUMBER"])
+    bot_number = bot_numbers[0] if isinstance(bot_numbers, list) else bot_numbers
 
+    # Filter: broadcast, newsletter
     if user_number.endswith("@broadcast") or user_number.endswith("@newsletter"):
         return
 
+    # Filter: admin to bot message
     if not group_prefix_required and user_number in cfg["CONFIG"]["BOT_NUMBER"] and bot_number in cfg["CONFIG"]["ADMIN_NUMBER"]:
         return
 
+    # Filter: group messages (unless special_messages)
     if not group_prefix_required and user_number.endswith("@g.us"):
         return
+
+    # Filter: ignored users
+    if user_number in cfg.get("IGNORE", {}).get("IGNORE", []):
+        print(f"{Fore.WHITE}{Back.RED}IGNORED USER: {user_number}{Fore.RESET}{Back.RESET}")
+        return
+
+    # Check maintenance mode
+    if msgprocess.on_maintenance:
+        admin_numbers = cfg["CONFIG"]["ADMIN_NUMBER"]
+        if user_number not in admin_numbers:
+            print(f"{Fore.RED}{Back.WHITE}ON MAINTENANCE - Ignoring message from {user_number}{Fore.WHITE}{Back.BLACK}")
+            return
 
     timestamp = data.get("timestamp", 0)
     notifyName = data.get("notifyName", "")
@@ -619,6 +647,7 @@ async def _handle_message(request: Request, *, kos_routing: bool, group_prefix_r
     if not user_number or not text:
         return
 
+    # Group prefix validation (for special_messages)
     if group_prefix_required and user_number.endswith("@g.us"):
         if user_number not in conversations:
             add_conversation(user_number=user_number, bot_number=bot_number)
@@ -634,9 +663,14 @@ async def _handle_message(request: Request, *, kos_routing: bool, group_prefix_r
     print(f"📥 Received: user={user_number}, text={text[:50]}...")
 
     conversation_obj = conversations[user_number]
+    
+    # Update bot_number from config (in case it changed)
+    conversation_obj.bot_number = bot_number
+    
     if notifyName:
         conversation_obj.user_name = notifyName
 
+    # KOS routing for new users
     if kos_routing:
         text_lower = text.lower()
         has_kos_keyword = any(kw in text_lower for kw in KOS_KEYWORDS)
@@ -649,6 +683,10 @@ async def _handle_message(request: Request, *, kos_routing: bool, group_prefix_r
             cf.add_system(conversation_obj, cfg['KOS_CS']['M_S'])
             cf.add_role_user(conversation_obj, cfg['KOS_CS']['M_U'])
             cf.add_role_assistant(conversation_obj, cfg['KOS_CS']['M_A'])
+
+    # Insert human message to DB
+    human_say = "HUMAN: " + text
+    dbo_insert_conv(user_number, bot_number, int(timestamp), human_say, DB_PATH)
 
     msg_obj = Message(
         text=text,
@@ -691,14 +729,14 @@ async def _handle_message(request: Request, *, kos_routing: bool, group_prefix_r
 
 @app.post("/messages")
 async def receive_message(request: Request):
-    """Endpoint menerima pesan dari WhatsApp (index.js)"""
-    return await _handle_message(request, kos_routing=True, group_prefix_required=False)
+    """Endpoint menerima pesan dari WhatsApp (index.js) - uses BOT_NUMBER"""
+    return await _handle_message(request, kos_routing=True, group_prefix_required=False, bot_config_key="BOT_NUMBER")
 
 
 @app.post("/special_messages")
 async def receive_special_message(request: Request):
-    """Endpoint alternatif - @g.us harus +bot_name prefix"""
-    return await _handle_message(request, kos_routing=False, group_prefix_required=True)
+    """Endpoint alternatif - @g.us harus +bot_name prefix - uses BOT2_NUMBER"""
+    return await _handle_message(request, kos_routing=False, group_prefix_required=True, bot_config_key="BOT2_NUMBER")
 
 
 @app.get("/print_messages/{user_number}")
@@ -776,10 +814,31 @@ async def put_botquestion(
 
 
 @app.put("/set_convmode/{user_number}/{convmode}")
-async def set_mode(user_number: str, convmode: ConvMode) -> dict[str, str]:
+async def set_mode(user_number: str, convmode: str) -> dict[str, str]:
     if user_number not in conversations:
         return {"detail": "user dont exist"}
-    conversations[user_number].set_convmode(convmode)
+    conv = conversations[user_number]
+    try:
+        convmode_enum = ConvMode[convmode.upper()]
+        conv.set_convmode(convmode_enum)
+    except Exception as e:
+        return {"detail": f"error: {e}"}
+    
+    # Save to database - delete and re-insert
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM CONNECTION WHERE user_number = ? AND bot_number = ?", 
+                       (conv.user_number, conv.bot_number))
+        conn.commit()
+        cursor.execute("INSERT INTO CONNECTION (user_number, bot_number, value) VALUES (?, ?, ?)",
+                       (conv.user_number, conv.bot_number, conv.get_params()))
+        conn.commit()
+        cursor.close()
+        conn.close()
+    except Exception as e:
+        return {"detail": f"error saving: {e}"}
+    
     return {"detail": f"set to {convmode}"}
 
 
@@ -818,14 +877,6 @@ async def start_question(user_number: str) -> dict[str, str]:
     return {"message": "done"}
 
 
-@app.put("/set_script/{user_number}/{script}")
-async def set_script(user_number: str, script: Script) -> dict[str, str]:
-    """Merubah macam-macam script mukakmu lah."""
-    if user_number not in conversations:
-        return {"detail": "user dont exist"}
-    return {"message": f"set to {script}"}
-
-
 @app.get("/reset_botquestions/{user_number}")
 async def reset_botquestion(user_number: str) -> dict[str, str]:
     if user_number not in conversations:
@@ -858,14 +909,6 @@ async def change_interval(user_number: str, interval: int) -> dict[str, str]:
     return {"message": f"sudah di set menjadi {interval}"}
 
 
-@app.put("/tambah_paid_messages/{user_number}/{unit}")
-async def tambah_paid_messages(user_number: str, unit: int):
-    if user_number not in conversations:
-        return {"message": "user does not exist"}
-    ct.tambah_paid_messages(conversations[user_number], jumlah=unit)
-    return {"message": f"user {user_number} sudah di tambah {unit} paid messages"}
-
-
 # Endpoint untuk memulai menjalankan method pada setiap objek
 @app.get("/call_method")
 async def start_method_call() -> dict[str, str]:
@@ -886,11 +929,38 @@ async def botquestions(user_number: str) -> dict[str, str]:
 
 
 @app.put("/set_persona/{user_number}/{persona}")
-async def set_persona(user_number: str, persona: Persona) -> dict[str, str]:
+async def set_persona(user_number: str, persona: str) -> dict[str, str]:
     if user_number not in conversations:
         return {"message": "user not found"}
-
-    pf.set_persona(persona, conversations[user_number])
+    
+    conv = conversations[user_number]
+    old_params = conv.get_params()
+    
+    try:
+        persona_enum = Persona[persona.upper()]
+        pf.set_persona(persona_enum, conv)
+    except Exception as e:
+        print(f"ERROR in pf.set_persona: {e}")
+        return {"message": f"error setting persona: {e}"}
+    
+    # Save to database - force update by deleting first then inserting
+    try:
+        # Delete old record and insert new
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM CONNECTION WHERE user_number = ? AND bot_number = ?", 
+                       (conv.user_number, conv.bot_number))
+        conn.commit()
+        cursor.execute("INSERT INTO CONNECTION (user_number, bot_number, value) VALUES (?, ?, ?)",
+                       (conv.user_number, conv.bot_number, conv.get_params()))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        print(f"DEBUG: Saved persona={persona} for user={user_number}, bot={conv.bot_number}")
+    except Exception as e:
+        print(f"ERROR saving to DB: {e}")
+        return {"message": f"error saving to DB: {e}"}
+    
     return {"message": f"set to {persona}"}
 
 
@@ -916,9 +986,9 @@ async def set_interview(user_number: str, data: dict) -> dict[str, str]:
 async def test_send(user_number: str) -> dict:
     if user_number not in conversations:
         return {"message": "user does not exist"}
-    response = await conversations[user_number].send_msg("Hello")
-    if response.ok:
-        return {"message": response.text}
+    response = conversations[user_number].send_msg("Hello")
+    if response:
+        return {"message": "Message sent"}
     else:
         return {"message": "error sending test"}
 
@@ -1104,19 +1174,32 @@ async def rebuild_connection_db():
 
 
 @app.put("/set_convtype/{user_number}/{convtype}")
-async def set_convtype(user_number: str, convtype: ConvType) -> dict[str, str]:
+async def set_convtype(user_number: str, convtype: str) -> dict[str, str]:
     if user_number not in conversations:
         return {"detail": "user dont exist"}
-    conversations[user_number].set_convtype(convtype)
+    conv = conversations[user_number]
+    try:
+        convtype_enum = ConvType[convtype.upper()]
+        conv.set_convtype(convtype_enum)
+    except Exception as e:
+        return {"detail": f"error: {e}"}
+    
+    # Save to database - delete and re-insert
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM CONNECTION WHERE user_number = ? AND bot_number = ?", 
+                       (conv.user_number, conv.bot_number))
+        conn.commit()
+        cursor.execute("INSERT INTO CONNECTION (user_number, bot_number, value) VALUES (?, ?, ?)",
+                       (conv.user_number, conv.bot_number, conv.get_params()))
+        conn.commit()
+        cursor.close()
+        conn.close()
+    except Exception as e:
+        return {"detail": f"error saving: {e}"}
+    
     return {"detail": f"{user_number} set to {convtype}"}
-
-
-@app.put("/toggle_free_gpt/{user_number}")
-async def toggle_free_gpt(user_number: str):
-    if user_number not in conversations:
-        return {"detail": "user dont exist"}
-    cf.toggle_free_gpt(conversations[user_number])
-    return {"detail": f"done toggle free gpt on {user_number}"}
 
 
 async def background_task():

@@ -72,37 +72,6 @@
       
       <!-- Usage Limits -->
       <div class="detail-section">
-        <h4>Usage Limits</h4>
-        <div class="usage-controls">
-          <div class="usage-item">
-            <label>Free Tries:</label>
-            <div class="usage-input-group">
-              <input v-model.number="usage.free_tries" type="number" class="usage-input" />
-              <button @click="addFreeTries" class="usage-btn">Add</button>
-            </div>
-          </div>
-          
-          <div class="usage-item">
-            <label>Paid Messages:</label>
-            <div class="usage-input-group">
-              <input v-model.number="usage.paid_messages" type="number" class="usage-input" />
-              <button @click="addPaidMessages" class="usage-btn">Add</button>
-            </div>
-          </div>
-          
-          <div class="usage-item">
-            <label>Free GPT:</label>
-            <button 
-              @click="toggleFreeGpt" 
-              :class="['toggle-btn', { active: usage.free_gpt }]"
-              class="toggle-btn"
-            >
-              {{ usage.free_gpt ? 'Enabled' : 'Disabled' }}
-            </button>
-          </div>
-        </div>
-      </div>
-      
       <!-- Message Content -->
       <div class="detail-section">
         <h4>Message Content</h4>
@@ -196,12 +165,6 @@ const details = reactive({
   temperature: 0.7
 })
 
-const usage = reactive({
-  free_tries: 0,
-  paid_messages: 0,
-  free_gpt: false
-})
-
 const messages = reactive({
   system: '',
   user: '',
@@ -232,12 +195,6 @@ const loadConversationDetails = () => {
     convtype: props.conversation.convtype,
     interval: props.conversation.interval,
     temperature: props.conversation.temperature
-  })
-  
-  Object.assign(usage, {
-    free_tries: props.conversation.free_tries,
-    paid_messages: props.conversation.paid_messages,
-    free_gpt: props.conversation.free_gpt
   })
   
   // Load messages
@@ -327,38 +284,6 @@ const setInterviewMessages = async () => {
     console.log('Interview messages updated')
   } catch (error) {
     console.error('Failed to set interview messages:', error)
-  }
-}
-
-const addFreeTries = async () => {
-  try {
-    const unit = 10 // Default add 10 tries
-    await adminApi.addFreeTries(details.user_number, unit)
-    usage.free_tries += unit
-    console.log(`Added ${unit} free tries`)
-  } catch (error) {
-    console.error('Failed to add free tries:', error)
-  }
-}
-
-const addPaidMessages = async () => {
-  try {
-    const unit = 10 // Default add 10 messages
-    await adminApi.addPaidMessages(details.user_number, unit)
-    usage.paid_messages += unit
-    console.log(`Added ${unit} paid messages`)
-  } catch (error) {
-    console.error('Failed to add paid messages:', error)
-  }
-}
-
-const toggleFreeGpt = async () => {
-  try {
-    await adminApi.toggleFreeGpt(details.user_number)
-    usage.free_gpt = !usage.free_gpt
-    console.log(`Free GPT toggled: ${usage.free_gpt}`)
-  } catch (error) {
-    console.error('Failed to toggle free GPT:', error)
   }
 }
 

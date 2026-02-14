@@ -43,16 +43,6 @@ class Role(str, Enum):
     USER = auto()
     ASSISTANT = auto()
 
-class Script(str, Enum):
-    BRAIN = auto()
-    DEPARSE = auto()
-    JS_OBJECTS = auto()
-    JSON_SERVER = auto()
-    PARSER = auto()
-    SESSIONS = auto()
-    NEWCOMER = auto()
-    INTERVIEW = auto()
-
 class ConvMode(str, Enum):
     CHITCHAT = auto()
     ASK = auto()
@@ -95,7 +85,6 @@ class Conversation():
         if not bot_number:
             bot_number = cfg['CONFIG']['BOT_NUMBER']
         self.bot_name = "Maya"
-        self.script =Script.BRAIN
         self.convmode=ConvMode.CHITCHAT
         self.interval = 600
         self.wait_time = 0
@@ -118,13 +107,7 @@ class Conversation():
         self.open_ai_key = ""
         self.profanity_counter = 7
         self.group_title = ""
-        self.free_gpt = False
         self.demo_user = True
-        self.intro_maxs_free_gpt = 5
-        self.gpt_accessed = 0
-        self.gpt_token_used = 0
-        self.daily_free_gpt = 5
-        self.paid_messages = 0
         self.anti_flood = []
         cf.add_system(self, cfg['ASSISTANT']['M_S'])
         cf.add_role_user(self, cfg['ASSISTANT']['M_U'])
@@ -197,11 +180,10 @@ class Conversation():
             'intro_msg' : self.intro_msg,
             'outro_msg' : self.outro_msg,
             'interval' : self.interval,
-            'persona' : self.persona,
-            'script' : self.script,
-            'convtype' : self.convtype,
+            'persona' : self.persona.name if hasattr(self.persona, 'name') else str(self.persona),
+            'convtype' : self.convtype.name if hasattr(self.convtype, 'name') else str(self.convtype),
             'need_group_prefix' : self.need_group_prefix,
-            'convmode' : self.convmode,
+            'convmode' : self.convmode.name if hasattr(self.convmode, 'name') else str(self.convmode),
             'question_asked' : self.question_asked,
             'temperature' : self.temperature,
             'wait_time' : self.wait_time,
@@ -210,13 +192,7 @@ class Conversation():
             'open_ai_key' : self.open_ai_key,
             'profanity_counter' : self.profanity_counter,
             'group_title' : self.group_title,
-            'free_gpt' : self.free_gpt,
             'demo_user' : self.demo_user,
-            'intro_max_free_gpt' : self.intro_maxs_free_gpt,
-            'gpt_accessed' : self.gpt_accessed,
-            'gpt_token_used' : self.gpt_token_used,
-            'daily_free_gpt' : self.daily_free_gpt,
-            'paid_messages' : self.paid_messages,
             'anti_flood' : self.anti_flood,
         }
         return json.dumps(obj)
@@ -229,11 +205,20 @@ class Conversation():
         self.intro_msg = obj['intro_msg']
         self.outro_msg = obj['outro_msg']
         self.interval = obj['interval']
-        self.persona = obj['persona']
-        self.script = obj['script']
-        self.convtype = obj['convtype']
+        # Convert stored values back to enums
+        try:
+            self.persona = Persona[obj['persona'].upper()] if isinstance(obj['persona'], str) else Persona(obj['persona'])
+        except (KeyError, ValueError):
+            self.persona = Persona.ASSISTANT
+        try:
+            self.convtype = ConvType[obj['convtype'].upper()] if isinstance(obj['convtype'], str) else ConvType(obj['convtype'])
+        except (KeyError, ValueError):
+            self.convtype = ConvType.DEMO
+        try:
+            self.convmode = ConvMode[obj['convmode'].upper()] if isinstance(obj['convmode'], str) else ConvMode(obj['convmode'])
+        except (KeyError, ValueError):
+            self.convmode = ConvMode.CHITCHAT
         self.need_group_prefix = obj['need_group_prefix']
-        self.convmode = obj['convmode']
         self.question_asked = obj['question_asked']
         self.temperature = obj['temperature']
         self.wait_time = obj['wait_time']
@@ -242,13 +227,7 @@ class Conversation():
         self.open_ai_key = obj['open_ai_key']
         self.profanity_counter = obj['profanity_counter']
         self.group_title = obj['group_title']
-        self.free_gpt = obj['free_gpt']
         self.demo_user = obj['demo_user']
-        self.intro_maxs_free_gpt = obj['intro_max_free_gpt']
-        self.gpt_accessed = obj['gpt_accessed']
-        self.gpt_token_used = obj['gpt_token_used']
-        self.daily_free_gpt = obj['daily_free_gpt']
-        self.paid_messages = obj['paid_messages']
         return "Done"
     
 

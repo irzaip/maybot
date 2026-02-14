@@ -70,9 +70,7 @@ async def run(msg_proc, conv_obj: Conversation, msg_text: str):
     if msg_text.lower().startswith('.eta'):
         return eta(conv_obj)
     if msg_text.lower().startswith('.st'):
-        return f"""fg: {conv_obj.free_gpt}
-pm: {conv_obj.paid_messages}
-prs: {conv_obj.persona}
+        return f"""prs: {conv_obj.persona}
 cm : {conv_obj.convmode}
 ct : {conv_obj.convtype}
         """

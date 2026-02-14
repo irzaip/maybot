@@ -39,17 +39,6 @@ export enum Role {
   ASSISTANT = 'ASSISTANT'
 }
 
-export enum Script {
-  BRAIN = 'BRAIN',
-  DEPARSE = 'DEPARSE',
-  JS_OBJECTS = 'JS_OBJECTS',
-  JSON_SERVER = 'JSON_SERVER',
-  PARSER = 'PARSER',
-  SESSIONS = 'SESSIONS',
-  NEWCOMER = 'NEWCOMER',
-  INTERVIEW = 'INTERVIEW'
-}
-
 export interface Message {
   text: string
   user_number: string
@@ -89,7 +78,6 @@ export interface Conversation {
   persona: Persona
   convtype: ConvType
   convmode: ConvMode
-  script?: Script
   temperature: number
   interval: number
   wait_time?: number
@@ -98,16 +86,9 @@ export interface Conversation {
   intro_msg?: string
   outro_msg?: string
   WORD_LIMIT: number
-  free_tries: number
   demo_user: boolean
   need_group_prefix: boolean
   group_title?: string
-  gpt_accessed: number
-  gpt_token_used: number
-  daily_free_gpt: number
-  intro_maxs_free_gpt: number
-  paid_messages: number
-  free_gpt: boolean
   profanity_counter: number
   funny_counter: number
   promo_counter: number
@@ -137,10 +118,7 @@ export interface ConversationListItem {
   persona: Persona
   convmode: ConvMode
   convtype: ConvType
-  free_tries: number
-  paid_messages: number
   last_active?: string
-  message_count: number
 }
 
 export interface BulkOperationRequest {

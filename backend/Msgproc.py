@@ -1,4 +1,4 @@
-from backend.conversations import Conversation, Message, ConvMode, Persona, Script, ConvType
+from backend.conversations import Conversation, Message, ConvMode, Persona, ConvType
 import sqlite3
 import toml
 from typing import Union
@@ -109,15 +109,6 @@ class MsgProcessor:
         nama_bot = conv_obj.bot_name.lower()
         awalan = message.text[:len(nama_bot)].lower()
 
-        if self.is_ignored(message):
-            print(f'{Fore.WHITE}{Back.RED}MESSAGE IGNORED{Fore.RESET}{Back.RESET}')
-            return None
-
-        #pesan dari bot di ignore
-        if self.is_bot(message):
-            return None
-
-        print(f"admin: {self.is_admin(message)}, dot:{message.text.startswith('.')}")
         #ADMIN COMMAND.
         if self.is_admin(message) and (nama_bot == awalan):
             return await admin.run(self, conv_obj, message.text) 
@@ -135,26 +126,11 @@ class MsgProcessor:
         if "info_cs" in message.text.lower():
             conv_obj.persona = Persona.ASSISTANT
             pf.set_persona(Persona.SALES_CS, conv_obj)
-            conv_obj.free_gpt = True
             print(f'{Fore.RED}{Back.WHITE}INFO: ADA SIGNAL INFO_CS DARI {message.user_number}{Fore.RESET}{Back.RESET}')
             await admin.notify_admin(f'INFO: signal INFO_CS dari user {message.user_number}')
             dbo.insert_info_cs(conv_obj.user_number, int(message.timestamp), cfg['CONFIG']['DB_FILE'])
-            return cfg['SALES_CS']['GREETING']            
-
-        #abaikan msg group ini, kecuali panjang.
-        if (conv_obj.need_group_prefix) and (message.author != '') and ( nama_bot != awalan ):
-            #kecuali postingan panjang.
-            if len(message.text.lower().split(" ")) > 25:
-                print(f'{Fore.RED}{Back.WHITE}LONG POSTING DETECTED!.. i will comment{Fore.RESET}{Back.RESET}')
-                preprompt = f"Maya berikan jawaban berupa komentar baik dan pendek pada postingan ini. Jangan gunakan hashtag dalam jawaban.\n\n"
-                try:
-
-                    result = await api.ask_gpt(self, conv_obj, f'{preprompt}{message.text}')
-                    return result
-                except:
-                    return None
-            return None
-
+            return cfg['SALES_CS']['GREETING']
+        
         #potong awalan
         if awalan == nama_bot:
             message.text = message.text[len(conv_obj.bot_name):].strip()
@@ -173,15 +149,6 @@ class MsgProcessor:
         print(f"{Fore.GREEN}{Style.BRIGHT}Message:",message)
         print(f"{Style.RESET_ALL}-------------------------------------------------")
 
-        #TODO: Please to be removed or changed
-        human_say = "HUMAN: "+message.text
-        dbo.insert_conv(conv_obj.user_number, conv_obj.bot_number, int(message.timestamp), human_say, self.db_file)
-
-        # on maintenance
-        if self.on_maintenance and not self.is_admin(message):
-            print(f"{Fore.RED}{Back.WHITE}Called.. But ON MAINTENANCE NOW{Fore.WHITE}{Back.BLACK}")
-            return "*BRB* - Be Right Back .. ZzzZzz ZZzzzz.."
-
         # KOS_CS Persona - use kos_agent
         if conv_obj.persona == Persona.KOS_CS:
             print(f"{Fore.CYAN}>>> Using KOS_CS agent{Style.RESET_ALL}")
@@ -193,15 +160,12 @@ class MsgProcessor:
                     if score_val < 5:
                         print(f'{Fore.RED}{Back.WHITE}LOW SCORE: {score} - {message.user_number}{Fore.RESET}{Back.RESET}')
                         try:
-                            admin.notify_admin(f'LOW SCORE {score} - {message.user_number}\n\n{message.text}\n\n{response["response"]}')
+                            await admin.notify_admin(f'LOW SCORE {score} - {message.user_number}\n\n{message.text}\n\n{response["response"]}')
                         except:
                             pass
                 except (ValueError, TypeError):
                     pass
             return response.get('response', 'Maaf, ada kesalahan.') if response else 'Maaf, ada kesalahan.'
-
-        if conv_obj.free_gpt:
-            return await friend.run(self, conv_obj, message)
 
         if conv_obj.convtype == ConvType.ADMIN:
             return await admin.run(self, conv_obj, message.text) 
@@ -228,10 +192,6 @@ class MsgProcessor:
         if conv_obj.convmode == ConvMode.ASK:
             if "ok" in message.text.lower():
                 return "oke juga"
-
-        # JUST RETURN IT
-        return "pfft..."
-
 
         # JUST RETURN IT
         return "pfft..."

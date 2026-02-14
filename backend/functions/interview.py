@@ -1,4 +1,4 @@
-from backend.conversations import Conversation, ConvMode, Message, Script
+from backend.conversations import Conversation, ConvMode, Message
 
 
 def add_last_question(conv_obj: Conversation) -> None:

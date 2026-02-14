@@ -2,12 +2,6 @@ import toml
 
 cfg = toml.load('config.toml')
 
-def toggle_free_gpt(conv_obj):
-    if conv_obj.free_gpt:
-        conv_obj.free_gpt = False
-    else:
-        conv_obj.free_gpt = True
-
 def add_system(conv_obj, message: str) -> None:
     reset_system(conv_obj)
     conv_obj.messages.append({"role" : "system", "content": message})

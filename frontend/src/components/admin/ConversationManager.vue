@@ -112,16 +112,6 @@
             </span>
           </div>
           
-          <div class="usage-info">
-            <div class="usage-item">
-              <span class="usage-label">Free:</span>
-              <span class="usage-value">{{ conv.free_tries }}</span>
-            </div>
-            <div class="usage-item">
-              <span class="usage-label">Paid:</span>
-              <span class="usage-value">{{ conv.paid_messages }}</span>
-            </div>
-          </div>
         </div>
         
         <div class="conversation-actions">

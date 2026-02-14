@@ -4,7 +4,7 @@ from string import Template
 import os
 import requests
 import ast
-from backend.conversations import BotQuestion, ConvMode, Script, Persona, Role, ConvType
+from backend.conversations import BotQuestion, ConvMode, Persona, Role, ConvType
 import json
 from typing import List
 import pprint
@@ -208,22 +208,6 @@ def set_maintenance() -> None:
         print(f'SET MAINTENANCE: {response.text}')
     else:
         print(f'Error set maintenance mode')
-
-def tambah_paid_messages(user_number, unit: int):
-    url = f'{server_address}/tambah_paid_messages/{user_number}/{unit}'
-    response = requests.put(url)
-    if response.ok:
-        print(f'{user_number} telah di tambah {unit} paid messages')
-    else:
-        print(f'gagal menambah {user_number} sejumlah {unit} paid messages')
-
-def toggle_free_gpt(user_number):
-    url = f'{server_address}/toggle_free_gpt/{user_number}'
-    response = requests.put(url)
-    if response.ok:
-        print(f'{user_number} telah di toggle setting free_gpt nya')
-    else:
-        print(f'gagal toggle {user_number} setting free gpt')
 
 
 def send_to_phone(user_number: str, bot_number: str, message: str):
